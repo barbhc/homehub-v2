@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon, CheckIcon } from "lucide-react"
 import {
   isScheduledTask,
   willNotify,
@@ -36,6 +36,10 @@ import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { NextDueLine, SeasonAsk } from "@/components/care/NextDue"
 import { planFor, type CadenceFacts } from "@/modules/care/services/cadenceChangeService"
 import { cadenceChanged, lastDoneClaim, type CadenceChangePlan } from "../../../shared/tasks/cadenceChange"
+import {
+  defaultChoiceFor, matchManualToTypical,
+  type ReplaceMatch, type TypicalChoice, type TypicalChoiceEntry, type TypicalTask,
+} from "../../../shared/care/manualReplaces"
 
 /**
  * The post-parse review — where a manual's extracted tasks become the user's
@@ -219,7 +223,14 @@ interface TaskReviewSheetProps {
   /** `edits` is the structured diff of every correction made in this review —
    *  the caller records it as parse feedback on save, so feedback capture does
    *  not depend on the user also tapping "these don't look right". */
-  onSave: (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => Promise<string | null>
+  onSave: (
+    tasks: PreviewTask[],
+    chunks: PreviewChunk[],
+    edits: ReviewEditSummary,
+    /** Before-friends PR D: her Replace / Keep Both answer for each row that
+     *  matched a typical task — empty when `typicalTasks` was not passed. */
+    typicalChoices: TypicalChoiceEntry[],
+  ) => Promise<string | null>
   saving: boolean
   /** Fires when the user says the parse looks wrong. Carries their corrections. */
   onFeedback?: (payload: { reasons: string[]; note: string; edits: ReviewEditSummary; rescan: boolean }) => void
@@ -262,6 +273,16 @@ interface TaskReviewSheetProps {
   /** D4: "Change" beside the task level. The caller navigates; this component
    *  is rendered in tests without a router (see freezeRiskFalse). */
   onChangeTaskLevel?: () => void
+  /**
+   * Before-friends PR D — a FRESH read's review only (ParsePickupCard): the
+   * typical tasks (care library) already on this item. A maintenance row that
+   * is the same job asks, inside the row, Replace or Keep Both; Save sends the
+   * answer and the server applies it in the same commit.
+   *
+   * Absent (the default, and what ReviewItemTasksButton passes) draws none of
+   * it: re-reviewing stored tasks has nothing to replace.
+   */
+  typicalTasks?: TypicalTask[]
 }
 
 export function TaskReviewSheet({
@@ -274,12 +295,28 @@ export function TaskReviewSheet({
   taskLevel,
   careItem,
   onChangeTaskLevel,
+  typicalTasks,
 }: TaskReviewSheetProps) {
   const initial = useMemo(
     () => rowsFrom(previewData, freezeRiskFalse, { taskLevel, item: careItem }),
     [previewData, freezeRiskFalse, taskLevel, careItem],
   )
   const [rows, setRows] = useState<ReviewRow[]>(initial)
+  /**
+   * PR D: which of the manual's tasks is the same job as a typical task on the
+   * item, by row id. Only the manual's TASK rows are matched — a tip is never
+   * a replacement — and from the rows as the read produced them, so a row's
+   * match does not move while she edits it.
+   */
+  const replaceMatches = useMemo(() => {
+    const byRow = new Map<string, ReplaceMatch>()
+    if (!typicalTasks?.length) return byRow
+    const taskRows = initial.filter((r) => r.origin === "task")
+    for (const m of matchManualToTypical(taskRows.map((r) => r.title), typicalTasks)) byRow.set(taskRows[m.rowIndex].id, m)
+    return byRow
+  }, [initial, typicalTasks])
+  /** Her answers, by row id; a row she has not touched takes the default (D11). */
+  const [typicalChoice, setTypicalChoice] = useState<Record<string, TypicalChoice>>({})
   /**
    * "maintenance" opens straight on the schedule screen, listing only the
    * upkeep the user has to decide about. Cleaning, setup steps and tips are
@@ -315,6 +352,18 @@ export function TaskReviewSheet({
     setRows(initial)
     setExpandedId(null); setGuideIndex(null); setWalked(false); setSaveError(null)
   }
+  // New matches (a new read, or the item's typical tasks arriving) start the
+  // answers over at their defaults.
+  if (useDepsChanged([replaceMatches])) setTypicalChoice({})
+
+  /** The match this row asks about, when it asks: kept, and filed as
+   *  Maintenance. Skipped, or re-filed as cleaning, setup or a tip, it asks
+   *  nothing and sends nothing (the server then treats it as before). */
+  const replaceAsk = (r: ReviewRow): ReplaceMatch | null => {
+    const m = replaceMatches.get(r.id)
+    return m && r.included && displayKind(r) === "maintenance" ? m : null
+  }
+  const choiceOf = (r: ReviewRow, m: ReplaceMatch): TypicalChoice => typicalChoice[r.id] ?? defaultChoiceFor(m.by)
 
   const patch = useCallback((id: string, next: Partial<ReviewRow>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...next } : r)))
@@ -438,6 +487,7 @@ export function TaskReviewSheet({
     setSaveError(null)
     const keptTasks: PreviewTask[] = []
     const keptChunks: PreviewChunk[] = previewData.chunks.filter((c) => !(c.tags ?? []).includes(USAGE_TIP_TAG))
+    const typicalChoices: TypicalChoiceEntry[] = []
     for (const r of rows) {
       if (!r.included) continue
       if (r.kind === "usage") {
@@ -457,6 +507,8 @@ export function TaskReviewSheet({
         risk_level: "performance", estimated_minutes: r.minutes, schedule_type: r.schedule,
         interval_days: r.intervalDays, instructions_text: null, symptom_tags: [], re_check_triggers: [],
       }
+      const ask = replaceAsk(r)
+      if (ask) typicalChoices.push({ title: base.title, templateId: ask.typical.templateId, choice: choiceOf(r, ask) })
       keptTasks.push({
         ...base,
         care_type: r.kind === "cleaning" ? "cleaning" : "maintenance",
@@ -468,7 +520,7 @@ export function TaskReviewSheet({
         last_done_on: r.lastDoneOn,
       })
     }
-    const err = await onSave(keptTasks, keptChunks, edits)
+    const err = await onSave(keptTasks, keptChunks, edits, typicalChoices)
     if (err) setSaveError(err)
     // The explanation retires on the first successful SAVE, not on a "Got it".
     // It answers "what saving these does", so the moment it stops being news is
@@ -489,6 +541,55 @@ export function TaskReviewSheet({
     const next = guideIndex! + 1
     if (next >= rows.length) { setGuideIndex(null); setWalked(true) } else setGuideIndex(next)
     scrollRef.current?.scrollTo?.({ top: 0 })
+  }
+
+  /**
+   * PR D, mock r4-m2-replace as the owner amended it: on the row's own
+   * surface (she found the tinted panel hard to read), one line, then the
+   * choice. The selected half is filled because it is SELECTED, not because it
+   * is a button — Save stays the screen's one filled button.
+   */
+  const replacePanel = (r: ReviewRow, m: ReplaceMatch, className?: string) => {
+    const choice = choiceOf(r, m)
+    const options: { id: TypicalChoice; label: string }[] = [
+      { id: "replace", label: "Replace" },
+      { id: "keep_both", label: "Keep Both" },
+    ]
+    return (
+      <div data-testid="typical-replace" className={className}>
+        <p className="text-[0.8125rem] leading-snug text-muted-foreground">
+          {choice === "replace"
+            ? <>Replaces your typical task &ldquo;{m.typical.title}&rdquo;</>
+            : <>Same as your typical task &ldquo;{m.typical.title}&rdquo;?</>}
+        </p>
+        {/* A radio group's keyboard: one tab stop (the selected option), and
+            the arrow keys move the choice and the focus together. */}
+        <div role="radiogroup" aria-label={`${r.title}: replace your typical task, or keep both`}
+          onKeyDown={(e) => {
+            if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return
+            e.preventDefault()
+            const next = choice === "replace" ? "keep_both" : "replace"
+            setTypicalChoice((prev) => ({ ...prev, [r.id]: next }))
+            e.currentTarget.querySelector<HTMLButtonElement>(`[data-choice='${next}']`)?.focus()
+          }}
+          className="mt-2 flex max-w-[22rem] overflow-hidden rounded-full border border-border">
+          {options.map((o) => {
+            const on = choice === o.id
+            return (
+              <button key={o.id} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-choice={o.id}
+                onClick={() => setTypicalChoice((prev) => ({ ...prev, [r.id]: o.id }))}
+                className={cn(
+                  "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 text-[0.875rem] font-bold transition-colors",
+                  on ? "bg-[var(--hh-teal-fill)] text-primary-foreground" : "bg-card text-foreground",
+                )}>
+                {on && <CheckIcon className="size-4 shrink-0" aria-hidden />}
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   const expandedCard = (r: ReviewRow, opts?: { guided?: boolean }) => {
@@ -533,6 +634,13 @@ export function TaskReviewSheet({
           <b className="font-extrabold">{REVIEW_BUCKET_COPY[bucketOfRow(r)].title}</b>
           {bellOn(r) && <BellRingIcon className="size-[13px] shrink-0" aria-label="will remind you" />}
         </div>
+
+        {/* PR D: the same question the collapsed row asks, so the walk and the
+            opened row never hide an answer Save is about to send. */}
+        {(() => {
+          const m = replaceAsk(r)
+          return m ? replacePanel(r, m, "mt-3") : null
+        })()}
 
         {/* The one destructive choice on this screen, stated only when it applies. */}
         {r.kind === "usage" && r.origin === "task" && r.origSchedule === "setup" && (
@@ -815,11 +923,17 @@ export function TaskReviewSheet({
     const rail = r.kind === "usage" ? SECTION_RAIL[b] : TIER_RAIL[r.tier] ?? SECTION_RAIL[b]
     const scheduled = isScheduledTask(taskLikeOf(r))
     const reminds = bellOn(r)
-    return (
+    // PR D: a row that asks Replace or Keep Both carries the question INSIDE
+    // its card, under the row — but outside the row's button, because a
+    // control inside a button is not a control (and the whole row opens).
+    const ask = replaceAsk(r)
+    const rowButton = (
       <button key={r.id} type="button"
         onClick={(e) => expandAnchored(r.id, e.currentTarget)}
-        className={`w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2 transition-colors hover:border-primary ${
-          r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
+        className={ask
+          ? "w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-2 bg-card"
+          : `w-full text-left rounded-xl border px-3 py-2.5 mb-1.5 flex items-center gap-2 transition-colors hover:border-primary ${
+            r.included ? "bg-card border-border" : "border-dashed border-border opacity-50"}`}>
         <span aria-hidden="true" className="w-[3px] self-stretch min-h-[26px] shrink-0 rounded-full"
           style={{ background: r.included ? rail ?? "transparent" : "transparent" }} />
         <span className="flex flex-1 min-w-0 flex-col">
@@ -885,6 +999,14 @@ export function TaskReviewSheet({
           {r.included ? <XIcon className="size-[13px]" aria-hidden /> : <Undo2Icon className="size-[13px]" aria-hidden />}
         </span>
       </button>
+    )
+    if (!ask) return rowButton
+    return (
+      <div key={r.id} className="mb-1.5 rounded-xl border border-border bg-card transition-colors hover:border-primary">
+        {rowButton}
+        {/* Inset to the title: the 12px row padding, the 3px rail and its 8px gap. */}
+        {replacePanel(r, ask, "pb-3 pl-[23px] pr-3")}
+      </div>
     )
   }
 

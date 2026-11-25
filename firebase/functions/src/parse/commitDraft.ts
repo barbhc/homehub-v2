@@ -5,7 +5,7 @@
  * (the planner guarantees this); chunks are hard-delete + reinsert (lossless);
  * tasks are upsert-by-externalKey (preserves instance/completion history).
  */
-import { Timestamp, type Firestore } from "firebase-admin/firestore"
+import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore"
 import {
   planTaskReconciliation,
   extKey,
@@ -58,12 +58,32 @@ export interface CommitInput {
      * the row IS the manual's suggestion.
      */
     manual_suggestion_row?: SuggestionRow | null
+    /**
+     * Before-friends PR D: her answer to "this matches your typical task",
+     * already checked by commitManualDraft (`validTypicalChoices`) against the
+     * item's templates. Absent on the worker path and on any row she was not
+     * asked about — then the row is treated exactly as before.
+     */
+    typical_choice?: TypicalChoiceApplied | null
   })[]
   /** The member whose review is being committed (commitManualDraft). Absent
    *  on the worker path: nobody chose anything there. */
   reviewerUid?: string | null
   /** "today" anchor for schedules/instances — injectable for deterministic tests. */
   now: Date
+}
+
+/** A typical-task choice the caller has validated: the template exists in this
+ *  home, is on this item, is not deleted, and came from the care library. */
+export interface TypicalChoiceApplied {
+  templateId: string
+  /** The library entry's key, added to the item's `dismissedCare` on Replace. */
+  libraryKey: string
+  choice: "replace" | "keep_both"
+  /** The template's `updateTime` when the caller validated it. Replace writes
+   *  only if it is unchanged since, so a template edited, moved or retired in
+   *  between fails the save visibly instead of being retired on stale facts. */
+  templateUpdateTime: Timestamp
 }
 
 /** The fields of a task row provenance reads. */
@@ -93,6 +113,10 @@ export interface CommitResult {
   /** Incoming tasks declined because this item already had a near-identical
    *  task from a DIFFERENT manual. Counted, never silent. */
   duplicatesSkipped?: number
+  /** Typical tasks retired because she chose Replace (PR D). */
+  typicalReplaced?: number
+  /** Manual tasks created beside a typical task because she chose Keep Both. */
+  typicalKeptBoth?: number
   chunks: number
   tasks: number
   matched: number
@@ -410,10 +434,17 @@ async function executeCommit(
     updatedAt: nowTs,
   })
 
+  /** Rows this commit actually writes that carry a typical-task choice. A
+   *  choice on a row that is NOT written (a house rule dropped it, or another
+   *  task suppresses it) does nothing: retiring the typical task then would
+   *  leave the item with neither. */
+  const chosenWritten: TypicalChoiceApplied[] = []
+
   // matches: UPDATE in place (keep instances), re-stamp externalKey, reset missedScans.
   for (const m of plan.matches) {
     const t = tasks[m.incomingIndex]
     batch.set(templatesCol.doc(m.existingId), templateDoc(t), { merge: true })
+    if (t.typical_choice) chosenWritten.push(t.typical_choice)
   }
 
   // Tasks this ITEM already has from OTHER manuals. Reconciliation above is
@@ -430,26 +461,30 @@ async function executeCommit(
     .where("itemUnitId", "==", item.itemUnitId)
     .where("deletedAt", "==", null)
     .get()
-  const otherTitles = otherSnap.docs
+  const others = otherSnap.docs
     .filter((d) => d.get("manualId") !== manualId)
-    .map((d) => String(d.get("title") ?? ""))
-    .filter(Boolean)
+    .map((d) => ({ id: d.id, title: String(d.get("title") ?? "") }))
+    .filter((o) => o.title)
 
-  const isCrossManualDuplicate = (title: string) =>
-    otherTitles.some((existingTitle) => titleSimilarity(title, existingTitle) >= TITLE_MATCH_THRESHOLD)
+  // A row she answered about (Replace or Keep Both) is not a duplicate of the
+  // typical task she answered about — she has seen both and said what she
+  // wants. Every other template still suppresses it exactly as before.
+  const isCrossManualDuplicate = (title: string, answeredTemplateId: string | null) =>
+    others.some((o) => o.id !== answeredTemplateId && titleSimilarity(title, o.title) >= TITLE_MATCH_THRESHOLD)
 
   // inserts: new template + (for recurring) an initial scheduled instance w/ denorm.
   let inserted = 0
   let duplicatesSkipped = 0
   for (const i of plan.inserts) {
     const t = tasks[i]
-    if (isCrossManualDuplicate(t.title)) {
+    if (isCrossManualDuplicate(t.title, t.typical_choice?.templateId ?? null)) {
       duplicatesSkipped++
       continue
     }
     const tplRef = templatesCol.doc()
     batch.set(tplRef, { manualSuggestion: null, ...templateDoc(t), createdAt: nowTs, userModifiedAt: null, deletedAt: null })
     inserted++
+    if (t.typical_choice) chosenWritten.push(t.typical_choice)
     // Seasonal tasks anchor to their season (winterize → next fall), NOT the
     // parse date — else a winterize task lands "due today" in July. Unknown-season
     // seasonal tasks get no due-now instance (the template still exists; it can be
@@ -510,6 +545,56 @@ async function executeCommit(
     }
   }
 
+  // Replace (PR D), in THIS batch, so the manual's task and the typical task's
+  // retirement land together or not at all — never an item with neither.
+  //  - the template: inactive AND deleted. `deletedAt` is what stops it
+  //    suppressing this manual's task on every later re-read (the suppression
+  //    query above reads `deletedAt == null` and never looked at `isActive`);
+  //    `replacedByManualId` says why it went.
+  //  - its OPEN instances are soft-deleted; done ones stay, so her history
+  //    keeps them (getCompletionHistory reads the instances' own titles).
+  //  - its library key joins the item's `dismissedCare`, so the item page does
+  //    not offer the typical task again a moment later.
+  // Each write is conditional on the doc being unchanged since we read it: a
+  // completion landing in between fails the whole save (and says so) rather
+  // than soft-deleting an instance that has just been done.
+  let typicalReplaced = 0
+  let typicalKeptBoth = 0
+  const replacedIds = new Set<string>()
+  const dismissKeys = new Set<string>()
+  for (const c of chosenWritten) {
+    if (c.choice === "keep_both") {
+      typicalKeptBoth++
+      continue
+    }
+    if (replacedIds.has(c.templateId)) continue
+    replacedIds.add(c.templateId)
+    // Conditional on the snapshot commitManualDraft validated (same home,
+    // this item, a library task, not deleted): anything changed since, the
+    // template removed included, fails the whole batch and the save says so.
+    batch.update(
+      templatesCol.doc(c.templateId),
+      { isActive: false, deletedAt: nowTs, replacedByManualId: manualId, updatedAt: nowTs },
+      { lastUpdateTime: c.templateUpdateTime },
+    )
+    const inst = await instancesCol.where("taskTemplateId", "==", c.templateId).get()
+    for (const d of inst.docs) {
+      const status = d.get("status")
+      if ((status === "scheduled" || status === "snoozed") && d.get("deletedAt") == null) {
+        batch.update(d.ref, { deletedAt: nowTs, updatedAt: nowTs }, { lastUpdateTime: d.updateTime })
+      }
+    }
+    dismissKeys.add(c.libraryKey)
+    typicalReplaced++
+  }
+  // One item write for every key, however many were replaced.
+  if (dismissKeys.size > 0) {
+    batch.update(db.doc(`homes/${homeId}/items/${item.itemUnitId}`), {
+      dismissedCare: FieldValue.arrayUnion(...dismissKeys),
+      updatedAt: nowTs,
+    })
+  }
+
   // flags: increment missed_scans (keep the task).
   for (const f of plan.flags) {
     batch.set(templatesCol.doc(f.existingId), { missedScans: f.missedScans, updatedAt: nowTs }, { merge: true })
@@ -549,6 +634,16 @@ async function executeCommit(
     await delBatch.commit()
   }
 
+  if (typicalReplaced > 0 || typicalKeptBoth > 0) {
+    console.info("[commitDraft] applied typical-task choices", {
+      homeId,
+      itemUnitId: item.itemUnitId,
+      manualId,
+      replaced: [...replacedIds],
+      typicalKeptBoth,
+    })
+  }
+
   if (duplicatesSkipped > 0) {
     console.info("[commitDraft] skipped cross-manual duplicates", {
       itemUnitId: item.itemUnitId,
@@ -563,6 +658,8 @@ async function executeCommit(
     matched: plan.matches.length,
     inserted,
     duplicatesSkipped,
+    typicalReplaced,
+    typicalKeptBoth,
     flagged: plan.flags.length,
     deleted: plan.deletes.length,
   }

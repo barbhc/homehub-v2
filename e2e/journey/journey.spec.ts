@@ -564,6 +564,13 @@ test.describe("journey walks", () => {
     // And it does not claim a manual it may not have.
     await expect(page.getByText(/This manual is cleaning/)).toHaveCount(0)
 
+    // Before-friends PR D: Replace or Keep Both belongs to a FRESH read's
+    // review only. Re-reviewing stored tasks has nothing to replace, so the
+    // question is not rendered at all (e2e/emu/item-replace-typical.spec.ts
+    // walks the review that does ask).
+    await expect(page.getByTestId("typical-replace")).toHaveCount(0)
+    await expect(page.getByRole("radio", { name: "Keep Both" })).toHaveCount(0)
+
     await snap(page, "J3", "review-one-screen",
       "Sections by kind, Setup last. The dishwasher's only task is ITEM cleaning, so the summary reads “Nothing here goes into Tasks.” with no notify line, the Cleaning row carries its cadence chip and NO bell (the Cleaning header, not the row, says it lives on the item page) — and nothing claims these are already saved while the primary button is what saves them",
       summary, { viewportOnly: true })

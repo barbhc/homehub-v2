@@ -570,6 +570,29 @@ setup."*
   task — the household saw each upkeep task twice. A claim expires after five
   minutes, because an attempt that dies mid-save must not wedge the manual:
   losing a paid read is worse than the duplicate. — Codex review 2026-10-29
+- **A manual's task replaces a typical one only with her say-so.** When the
+  item already has a typical task she added from the care library and the
+  manual's review lists the same job, that row says so inside itself, on the
+  row's own surface, over a Replace / Keep Both choice: "Replaces your typical
+  task “…”" or "Same as your typical task “…”?". The default is Replace only
+  when the row's own words name the same kind of job (the library's archetype
+  rules, without their similarity fallback); a match on wording alone
+  defaults to Keep Both, because "Replace water inlet hoses" scores 0.67
+  against "Replace the water filter" (D11). The answer goes to
+  `commitManualDraft` with Save (`typicalChoices`) and is applied in the SAME
+  commit: Replace creates the manual's task and retires the typical one
+  (inactive and deleted, its open date gone, its done dates kept, its key
+  dismissed on the item); Keep Both creates the manual's task beside it. Only
+  a fresh read asks (`ParsePickupCard` passes `typicalTasks`; the stored-task
+  review passes none and draws none of it); a skipped row, or one re-filed as
+  cleaning, setup or a tip, asks nothing and sends nothing; no answer at all
+  (an old client) is exactly the behaviour before. Replace does not carry the
+  typical task's last-done date (D2), and the row does not promise it.
+  Before this, Save quietly dropped a manual task worded like a typical one
+  (`commitDraft`'s near-duplicate check) while the review still showed it, and
+  an archived typical task kept doing that on every later re-read.
+  — before-friends PR D, mock r4-m2-replace as the owner amended it
+  (2026-11-25: plain, not tinted; fewer words)
 - **Every read ends here — a rescan too.** (The manuals list is on Settings →
   Internal tools since 2026-11-23, shown only to a person with `dev_tools`;
   `design/settings-your-home.md`. Its rules below are unchanged, and the item
@@ -754,6 +777,7 @@ and where they differ, the amended line governs:
 | **This file** | A change quietly undoing an earlier agreement | live |
 | `src/components/manuals/TaskReviewSheet.sections.test.tsx` | A bucket with no rail — the HH-140 mechanism, now impossible because `SECTION_RAIL` is typed `Record<ReviewBucket, string>` | live |
 | `src/components/manuals/TaskReviewSheet.nextDue.test.tsx` + `src/modules/care/services/cadenceRule.integration.test.ts` | Re-review of existing tasks: no "Next due" claimed for an untouched cadence; the date counted from the last completion; seasonal with no season asking and holding Save; the review, Your reminders and "Tune this task" writing the same date for the same change (2026-10-28) | live |
+| `shared/care/manualReplaces.test.ts` + `TaskReviewSheet.replace.test.tsx` + `ParsePickupCard.typical.test.tsx` + `e2e/emu/item-replace-typical.spec.ts` + `firebase/functions/test/typicalChoices.emu.test.mjs` | Replace or Keep Both: a wording-only match defaulting to Replace, two rows claiming one typical task, the question drawn on the stored-task review or on a skipped or re-filed row, an answer Save does not send, a failed read of the item's tasks costing the review; and on the server, through the real callable, Replace and the manual's task not landing together, a Keep Both still suppressed, an old client's save changing, a forged or stale choice being honoured, a retired typical task suppressing or coming back on a re-read (before-friends PR D) | live |
 | `src/components/manuals/TaskReviewSheet.rowstates.test.tsx` | The three timing states drifting — asserts a quiet row's chip is byte-identical to a notifying row's | live |
 | `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
 | `remindsByDefault(tier: PriorityTierName)` | **The compiler.** Passing a bucket where a tier belongs fails `tsc -b`; a runtime test could not catch it, because today the bucket for a scheduled row IS the tier | live |

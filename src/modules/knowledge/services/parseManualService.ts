@@ -2,6 +2,7 @@ import { callable, docRef } from "@/integrations/firebase"
 import { onSnapshot, getDoc, type Unsubscribe } from "firebase/firestore"
 import type { PreviewChunk, PreviewResult, PreviewTask } from "../types/previewTypes"
 import { isParseInFlightMessage, PARSE_ERR } from "../../../../shared/parse/parseErrors"
+import type { TypicalChoiceEntry } from "../../../../shared/care/manualReplaces"
 
 /**
  * Shape returned by the parse-manual edge function under `confidence`.
@@ -454,7 +455,7 @@ export type CommitReviewedResult =
   | { ok: false; error: string }
 
 const commitManualDraftCallable = callable<
-  { homeId: string; manualId: string; chunks: PreviewChunk[]; tasks: PreviewTask[]; draftRequestId?: string },
+  { homeId: string; manualId: string; chunks: PreviewChunk[]; tasks: PreviewTask[]; draftRequestId?: string; typicalChoices?: TypicalChoiceEntry[] },
   { ok: boolean; chunks?: number; tasks?: number; error?: string }
 >("commitManualDraft")
 
@@ -463,13 +464,18 @@ const commitManualDraftCallable = callable<
  *
  *  `draftRequestId` is the run the review was opened on. The server refuses the
  *  save if its draft is a different run, so a review left open across a newer
- *  read reports that instead of committing stale rows over the new result. */
+ *  read reports that instead of committing stale rows over the new result.
+ *
+ *  `typicalChoices` (before-friends PR D): her Replace / Keep Both answer per
+ *  manual task that matched a typical task. The server applies them in the
+ *  same commit; none sent is exactly the behaviour before PR D. */
 export async function commitReviewedDraft(
   homeId: string,
   manualId: string,
   chunks: PreviewChunk[],
   tasks: PreviewTask[],
   draftRequestId?: string | null,
+  typicalChoices: TypicalChoiceEntry[] = [],
 ): Promise<CommitReviewedResult> {
   try {
     const data = await commitManualDraftCallable({
@@ -478,6 +484,7 @@ export async function commitReviewedDraft(
       chunks,
       tasks,
       ...(draftRequestId ? { draftRequestId } : {}),
+      ...(typicalChoices.length > 0 ? { typicalChoices } : {}),
     })
     if (!data?.ok) return { ok: false, error: data?.error ?? "Save failed" }
     return { ok: true, chunks: data.chunks ?? 0, tasks: data.tasks ?? 0 }

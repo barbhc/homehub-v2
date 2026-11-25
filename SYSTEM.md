@@ -77,7 +77,7 @@ Two server-side gates, used consistently:
 |---|---|---|---|---|---|
 | `enqueueParse` | onCall | yes | per-home | yes | indirect (queues worker) |
 | `parseWorker` | onTaskDispatched | internal (Cloud Tasks) | n/a | n/a | **yes** — Claude |
-| `commitManualDraft` | onCall | yes | per-home | — | no |
+| `commitManualDraft` | onCall | yes | per-home | — | no — takes optional `typicalChoices` (before-friends PR D, Zod in `draftSchemas.ts`; each checked against the item's library templates) and may retire a typical task in the same commit |
 | `rollForwardNeverStarted` | onSchedule (30 5 * * *) | internal | n/a | n/a | no |
 | `graduateFeedback` | onSchedule | internal | n/a | n/a | unverified |
 | `sendTestPush` | onCall | yes | — | — | no |

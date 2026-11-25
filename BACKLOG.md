@@ -28,6 +28,53 @@ Migration phases 0–5 are complete and the shim is deleted. Read
 
 ---
 
+## Before friends (PRs A–D, #305–#307 + PR D) — the gaps they leave
+
+_Added 2026-11-24 with PR D, from `design/before-friends-plan.md` "Known gaps",
+re-checked against the code after A–C shipped. Each line was true on the
+branch that added it._
+
+- **Home's "No upkeep yet — add a manual" hero** (`src/pages/Home.tsx`
+  `NoUpkeepYetHero`, items but no tasks) still says upkeep only comes from a
+  manual. Since PR A the item page offers typical care without one. Not
+  mocked, so not changed.
+- **Two "What's in your home?" cards**: the empty-Home card (PR B) and the
+  older one for homes with tasks but no items, which kept its design (D5;
+  only its footer changed to Add My Exact Models). Make them one card.
+- **Typical care is thin.** One task for dishwashers; none for microwaves,
+  water heater items, ovens and ranges, ceiling fans or smoke-alarm items
+  (`shared/care/library.ts` has kinds for all of them, entries for none).
+- **`suggestionsForItem` counts a manual task as covering a typical one only
+  when the archetypes match**, so a manual's "Clean the filter" does not hide
+  the "Clean the dishwasher filter" suggestion. PR D's matcher
+  (`shared/care/manualReplaces.ts`) could decide it the same way the review does.
+- **Replace or Keep Both covers typical (care library) tasks only.** A manual
+  task worded like another manual's task, or like one she wrote herself, is
+  still dropped at Save by `commitDraft`'s near-duplicate check while the
+  review shows it (no duplicate, nothing lost, but the review overstates). So
+  is a matched row she re-files as cleaning or setup: it asks nothing and the
+  server keeps today's behaviour.
+- **An archived typical task** (`isActive: false`, `deletedAt` null — the
+  item page's archive) still suppresses the manual's matching task, and the
+  review does not ask about it, because it only offers active tasks.
+- **Two saves of one review with DIFFERENT answers** (two tabs: Keep Both in
+  one, Replace in the other) — the second is told it saved, because the
+  commit is keyed by the draft's run, not by what was sent; its answers (and
+  any other edits in it) are not applied. Pre-dates PR D (Codex review
+  2026-10-29 chose the run as the key); Codex flagged it again on PR D. Fix:
+  keep a hash of the reviewed payload with the commit and refuse a different one.
+- **Replace does not carry the typical task's last-done date** to the
+  manual's task (D2). The mock's "Its last done date carries over" was cut.
+- **The welcome page's Ask headline** ("Answers from your manuals",
+  `src/pages/Landing.tsx`) is still manual-first.
+- **How often the model lookup recognises a real model is unmeasured.**
+- **`kindOf` reads hyphens as spaces in the item's category only** (PR C),
+  not in its name or model: "Heat-Pump Dryer" stays a dryer, which is right,
+  but a hyphenated kind word typed into a NAME is not normalised. Fine today;
+  revisit if a kind is missed for that reason.
+
+---
+
 ## Demo feedback 2026-11-17 — seven items, directions decided 2026-11-18, none built
 
 Two friends at the owner's live demo. Designs, requirements, edge cases and the

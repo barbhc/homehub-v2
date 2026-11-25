@@ -12,12 +12,13 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { normalizeChunkRow, normalizeTaskRow } from "../../../../shared/parse/parseCore.js"
-import { commitDraft, CommitInProgressError } from "./commitDraft.js"
+import { commitDraft, CommitInProgressError, type TypicalChoiceApplied } from "./commitDraft.js"
 import { parseLastDone } from "../../../../shared/care/lastDone.js"
 import { pairReviewedWithDraft, type DraftRowLike } from "../../../../shared/tasks/fieldProvenance.js"
-import { CommitManualDraftRequest } from "./draftSchemas.js"
+import { CommitManualDraftRequest, type TypicalChoiceInput } from "./draftSchemas.js"
 import { parseCallableInput, storedText } from "../lib/validate.js"
 import { storedDocId } from "../lib/storedTask.js"
+import { pairMatch } from "../../../../shared/care/manualReplaces.js"
 import type { ParseItemFacts } from "./parseTypes.js"
 
 const REGION = "us-central1"
@@ -44,7 +45,7 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   const uid = request.auth?.uid
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.")
   // Parsed, never cast (H3a): the rows' contract is in draftSchemas.ts.
-  const { homeId, manualId, chunks, tasks, draftRequestId } = parseCallableInput(
+  const { homeId, manualId, chunks, tasks, draftRequestId, typicalChoices } = parseCallableInput(
     "commitManualDraft",
     CommitManualDraftRequest,
     request.data,
@@ -105,6 +106,19 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
 
   const draftTasks = draftRows(manualSnap.get("previewDraft.tasks"))
   const suggestions = pairReviewedWithDraft(normalized.map((t) => t.title), draftTasks)
+  // Before-friends PR D: "Replace" / "Keep Both", per row she was asked about.
+  // Each one is checked against the item's templates before it is trusted;
+  // anything that does not check out is dropped with a warning, never thrown —
+  // an old client, or a typical task removed while the review was open, must
+  // still be able to save. Absent → every row behaves exactly as before.
+  const choiceByRow = await validTypicalChoices(db, {
+    homeId,
+    manualId,
+    itemUnitId,
+    itemExists: itemSnap.exists,
+    rowTitles: tasks.map((t) => t.title),
+    choices: typicalChoices ?? [],
+  })
   const normTasks = tasks.map((t, i) => ({
     ...normalized[i],
     remind_enabled: t.remind_enabled,
@@ -121,6 +135,7 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
     // (anchor on today) — a malformed date must never cost the whole manual.
     last_done_on: parseLastDone(t.last_done_on, todayStr),
     manual_suggestion_row: suggestions[i],
+    typical_choice: choiceByRow.get(i) ?? null,
   }))
 
   // The requestId is DERIVED FROM THE DRAFT, not from the clock. Two saves of
@@ -142,6 +157,14 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
   } catch (e) {
     if (e instanceof CommitInProgressError) {
       throw new HttpsError("failed-precondition", "This review is already being saved. Give it a moment.")
+    }
+    // A Replace is conditional on the typical task (and its open dates) being
+    // unchanged since they were read; gRPC 9 is that condition failing, and 5
+    // is the template removed in between.
+    // The batch is all-or-nothing, so none of the tasks were written.
+    if (isFailedPrecondition(e)) {
+      console.warn(`[commitManualDraft] typical task changed mid-save (home ${homeId}, manual ${manualId}):`, e)
+      throw new HttpsError("aborted", "A task on this item changed while you were saving. Your tasks weren't saved. Try Save again.")
     }
     throw new HttpsError("internal", e instanceof Error ? e.message : "Save failed")
   }
@@ -174,8 +197,96 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
     )
   })
 
-  return { ok: true, chunks: res.chunks, tasks: res.tasks }
+  return { ok: true, chunks: res.chunks, tasks: res.tasks, typicalReplaced: res.typicalReplaced ?? 0 }
 })
+
+function isFailedPrecondition(e: unknown): boolean {
+  const code = !!e && typeof e === "object" ? (e as { code?: unknown }).code : undefined
+  return code === 9 || code === 5
+}
+
+/**
+ * Which rows carry a typical-task choice the server will honour, keyed by row
+ * index. A choice counts only when the row and the template match by the
+ * review's own rule (`pairMatch`), and its template:
+ *  - exists in THIS home and sits on THIS manual's item,
+ *  - is not deleted, and
+ *  - came from the care library (`externalKey` starts `library:`) — so a
+ *    manual's own task, or one she wrote herself, can never be retired here;
+ * and its title names a row that was sent. One template answers one row, and
+ * one row one template (first wins). Everything else is logged and dropped.
+ */
+export async function validTypicalChoices(
+  db: FirebaseFirestore.Firestore,
+  args: {
+    homeId: string
+    manualId: string
+    itemUnitId: string
+    itemExists: boolean
+    rowTitles: string[]
+    choices: TypicalChoiceInput[]
+  },
+): Promise<Map<number, TypicalChoiceApplied>> {
+  const out = new Map<number, TypicalChoiceApplied>()
+  if (args.choices.length === 0) return out
+  const drop = (c: TypicalChoiceInput, why: string) =>
+    console.warn("[commitManualDraft] ignored a typical-task choice", {
+      homeId: args.homeId,
+      manualId: args.manualId,
+      itemUnitId: args.itemUnitId,
+      templateId: c.templateId,
+      choice: c.choice,
+      why,
+    })
+  if (!args.itemExists) {
+    for (const c of args.choices) drop(c, "item does not exist")
+    return out
+  }
+  const usedTemplates = new Set<string>()
+  for (const c of args.choices) {
+    if (usedTemplates.has(c.templateId)) {
+      drop(c, "template already answered by another row")
+      continue
+    }
+    const row = args.rowTitles.findIndex((t, i) => t === c.title && !out.has(i))
+    if (row < 0) {
+      drop(c, "no unanswered row with that title")
+      continue
+    }
+    const snap = await db.doc(`homes/${args.homeId}/taskTemplates/${c.templateId}`).get()
+    if (!snap.exists) {
+      drop(c, "template not found")
+      continue
+    }
+    if (snap.get("itemUnitId") !== args.itemUnitId) {
+      drop(c, "template is on another item")
+      continue
+    }
+    if (snap.get("deletedAt") != null || !snap.updateTime) {
+      drop(c, "template is deleted")
+      continue
+    }
+    const key = storedText(snap.get("externalKey"))
+    if (!key || !key.startsWith(LIBRARY_KEY_PREFIX) || key.length === LIBRARY_KEY_PREFIX.length) {
+      drop(c, "template is not a typical (care library) task")
+      continue
+    }
+    const libraryKey = key.slice(LIBRARY_KEY_PREFIX.length)
+    // The review only asks about a pair the shared matcher matched; one that
+    // does not match (stale, or not from the review at all) is not honoured.
+    if (!pairMatch(c.title, { title: storedText(snap.get("title")) ?? "", libraryKey })) {
+      drop(c, "row and template do not match")
+      continue
+    }
+    usedTemplates.add(c.templateId)
+    out.set(row, { templateId: c.templateId, libraryKey, choice: c.choice, templateUpdateTime: snap.updateTime })
+  }
+  return out
+}
+
+/** What a care-library task's `externalKey` starts with
+ *  (src/modules/care/services/careSuggestionService.ts writes it). */
+const LIBRARY_KEY_PREFIX = "library:"
 
 /**
  * The stored draft's task rows, read defensively: it is member-writable data
