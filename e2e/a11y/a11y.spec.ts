@@ -1,6 +1,10 @@
 import { test, expect, gotoStable } from "../fixtures"
 import AxeBuilder from "@axe-core/playwright"
 import type { Page } from "@playwright/test"
+import { getApps, initializeApp } from "firebase-admin/app"
+import { getAuth } from "firebase-admin/auth"
+import { getFirestore, Timestamp } from "firebase-admin/firestore"
+import { EMULATOR_PROJECT_ID } from "../seed-config"
 
 /**
  * Accessibility scan of every surface, at both viewports.
@@ -78,7 +82,12 @@ async function expectNoBlockingViolations(page: Page, p: PageCase) {
   // desktop/mobile variants in the DOM, so `.first()` can resolve to a hidden
   // element and wait forever on something that will never be visible.
   await page.getByText(p.ready).filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+  await expectCleanScan(page, p.name)
+}
 
+/** Scan the page as it stands now; fail on any critical/serious violation. */
+async function expectCleanScan(page: Page, name: string) {
+  const p = { name }
   const results = await scan(page)
   const blocking = results.violations.filter(
     (v) => v.impact === "critical" || v.impact === "serious",
@@ -124,5 +133,87 @@ for (const colorScheme of ["light", "dark"] as const) {
         await expectNoBlockingViolations(page, p)
       })
     }
+  })
+}
+
+/**
+ * Home with nothing in it (before-friends mock 1): "What's in your home?" in
+ * all three of its states — Pick (with chips ticked), Care, and the collapsed
+ * row — at 390px and desktop width, in both themes. The seeded home is full, so each run makes its own empty home for a
+ * fresh account in the emulator (its own sentinel: specs share seeded state).
+ */
+async function emptyHomeAccount(tag: string): Promise<{ email: string; password: string }> {
+  const app = getApps()[0] ?? initializeApp({ projectId: EMULATOR_PROJECT_ID })
+  const email = `a11y-empty-${tag}-${Date.now()}@homehub.test`
+  const password = "A11yEmpty!2026"
+  const { uid } = await getAuth(app).createUser({ email, password, emailVerified: true })
+  const db = getFirestore(app)
+  const now = Timestamp.now()
+  const homeId = `a11y-empty-${uid}`
+  await db.doc(`homes/${homeId}`).set({
+    name: "Empty Home", timezone: "America/Los_Angeles", createdBy: uid, homeType: "condo", ownership: "own",
+    preferredMode: "inventory_first", profileCompletedAt: now, createdAt: now, updatedAt: now, deletedAt: null,
+  })
+  await db.doc(`homes/${homeId}/members/${uid}`).set({ uid, role: "owner", isPrimary: true, joinedAt: now })
+  await db.doc(`homes/${homeId}/rooms/kitchen`).set({ name: "Kitchen", createdAt: now, updatedAt: now, deletedAt: null })
+  await db.doc(`users/${uid}`).set({ fullName: null, avatarUrl: null, createdAt: now, updatedAt: now })
+  // The tour is held by the card anyway (data-tour-halt); off here so a later visit never covers the scan.
+  await db.doc(`users/${uid}/private/preferences`).set({ tour_completed: true, updatedAt: now })
+  return { email, password }
+}
+
+const EMPTY_HOME_VIEWPORTS = [
+  { label: "390px", viewport: { width: 390, height: 844 } },
+  { label: "desktop", viewport: { width: 1440, height: 900 } },
+] as const
+
+for (const colorScheme of ["light", "dark"] as const) for (const { label, viewport } of EMPTY_HOME_VIEWPORTS) {
+  test.describe(`empty Home, ${colorScheme}, ${label}`, () => {
+    test.use({ storageState: { cookies: [], origins: [] }, colorScheme, viewport })
+
+    test(`What's in your home? in all three states (${colorScheme}, ${label}) has no critical/serious a11y violations`, async ({ page }, info) => {
+      // Chromium only, at both widths. On the WebKit project a FRESH account's
+      // first Firestore reads against the emulator intermittently never answer
+      // (the app sits on "Loading..."; the same hang the mobile rooms and
+      // providers scans show on main), which would make this a coin flip.
+      test.skip(info.project.name === "mobile", "WebKit + emulator first-read hang; 390px is covered in Chromium")
+      // A sign-in and three scans: more than the suite's default 60 s on a slow run.
+      test.setTimeout(150_000)
+      const { email, password } = await emptyHomeAccount(`${info.project.name}-${colorScheme}-${label}`)
+      // The sign-in screen settled first (gotoStable + its heading): a fill
+      // racing the first paint once sent the form nowhere (landed on /).
+      await gotoStable(page, "/signin")
+      await page.getByText(/welcome back/i).filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
+      await page.locator('input[type="email"]').fill(email)
+      await page.locator('input[type="password"]').fill(password)
+      await page.getByRole("button", { name: /^sign in$/i }).click()
+      // Signed in once the page leaves /signin. Then open Home directly: on
+      // WebKit against the emulator, Index's / → /home hand-off sometimes sat
+      // on "/" past 40 s while the same account opened /home at once.
+      await expect(page).not.toHaveURL(/\/signin/, { timeout: 20_000 })
+      await gotoStable(page, "/home")
+
+      const card = page.getByTestId("empty-home-card").filter({ visible: true }).first()
+      await expect(card.getByRole("button", { name: "Not now" })).toBeEnabled({ timeout: 20_000 })
+      await card.getByRole("button", { name: "Smoke alarms" }).click()
+      await card.getByRole("button", { name: "Dishwasher" }).click()
+      await expectCleanScan(page, `empty home: pick (${colorScheme})`)
+
+      // Appliance chips only into Care: See Suggested Care then writes nothing
+      // (a fact chip writes the profile, and browser writes against the
+      // emulator can hang on WebKit — reference_emulator_e2e_wedge). The fact
+      // write itself is covered by the unit tests and the journey walk.
+      await card.getByRole("button", { name: "Smoke alarms" }).click()
+      await card.getByRole("button", { name: "Water heater" }).click()
+      await card.getByRole("button", { name: "See Suggested Care" }).click()
+      const care = page.getByTestId("empty-home-care").filter({ visible: true }).first()
+      await expect(care.getByRole("button", { name: "Add Clean the dishwasher filter" })).toBeVisible({ timeout: 20_000 })
+      await expectCleanScan(page, `empty home: care (${colorScheme})`)
+
+      await care.getByRole("button", { name: "Edit what you have" }).click()
+      await page.getByTestId("empty-home-card").filter({ visible: true }).first().getByRole("button", { name: "Not now" }).click()
+      await expect(page.getByTestId("empty-home-collapsed").filter({ visible: true }).first()).toBeVisible()
+      await expectCleanScan(page, `empty home: collapsed (${colorScheme})`)
+    })
   })
 }

@@ -85,6 +85,22 @@ https://claude.ai/code/artifact/9da89320-5023-48d8-838d-4e357ba3fd3b
   any other `lane` value is just the chooser. It replaced "No items yet" (two
   add buttons and a promise that Homehub finds and reads the manual). Still one
   door: `SmartAddItem` is the only creator. — owner, 2026-11-21
+- **`?lane=appliance&kind=<subType>` pre-picks "What is it?"** (before-friends
+  B5, 2026-11-24). Sent only by Home's **Add My Exact Models** — on the
+  empty-Home card ("What's in your home?", `WhatsInYourHomeCard`) and on the
+  appliances card for a home with tasks but no items (`NextStepCard`) — when
+  exactly one appliance chip is ticked and the add screen has a chip for it
+  (dishwasher, washing-machine, dryer, refrigerator, water-heater,
+  hvac-furnace; `KIND_SUBTYPE` in `shared/care/dayOne.ts`). `SmartAddItem` reads
+  it on first render only, and only with `lane=appliance` and a value from
+  `KIND_CHIPS` (an allowlist; anything else is ignored). It sets exactly what
+  tapping that chip sets. A saved session still prompts and wins; Start fresh
+  still resets to the chooser. When an item was already made from those cards
+  in that visit, the button opens that item (`/items/:id`, or `/inventory` for
+  several) instead, so it never starts a second dishwasher. Those two cards are
+  the other way items are made: a ticked appliance becomes an item, named for
+  the chip, when its first task is added (`createApplianceItem`,
+  `src/components/home/dayOneData.ts`; D1).
 
 ## Screen 2 — Identify it (appliance lane)
 

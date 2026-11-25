@@ -76,6 +76,10 @@ describe("MonthlyRefreshCard", () => {
     renderCard(dallas())
     expect(await screen.findByText("This month at your home")).toBeInTheDocument()
     expect(screen.getByText("December")).toBeInTheDocument()
+    // The home's stored "Test smoke and CO alarms" covers the library's alarm
+    // test, which is titled "Test the smoke alarms" since before-friends B1:
+    // the absence check targets the title it would actually show.
+    expect(rowTitles()).not.toContain("Test the smoke alarms")
     expect(rowTitles()).not.toContain("Test smoke and CO alarms")
     expect(rowTitles().length).toBeGreaterThan(0)
     expect(rowTitles().length).toBeLessThanOrEqual(3)

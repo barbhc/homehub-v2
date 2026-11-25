@@ -7,7 +7,7 @@ import {
   type IdentifyData,
   type IdentifyMode,
 } from "@/components/smart-add/IdentifyStep"
-import { DEFAULT_IDENTIFY_DATA } from "@/components/smart-add/identifyData"
+import { DEFAULT_IDENTIFY_DATA, KIND_CATEGORY, KIND_CHIPS } from "@/components/smart-add/identifyData"
 import { ManualStep, type ManualSourceChoice } from "@/components/smart-add/ManualStep"
 import { identityWrite } from "@/components/smart-add/identifyWrite"
 import { useCurrentPropertyCompat as useCurrentProperty } from "@/modules/home"
@@ -84,7 +84,16 @@ export default function SmartAddItem() {
     const lane = searchParams.get("lane")
     return lane === "appliance" || lane === "simple" ? lane : "choice"
   })
-  const [identifyData, setIdentifyData] = useState<IdentifyData>({ ...DEFAULT_IDENTIFY_DATA })
+  // ?kind= (before-friends B5): Home's "Add My Exact Models" pre-picks the one
+  // appliance she ticked under "What is it?". Read on first render only, and
+  // only in the appliance lane with a value from KIND_CHIPS (an allowlist on
+  // a query param: anything else is ignored, never cast). It sets exactly what
+  // tapping that chip sets. A resumed session still overwrites it.
+  const [identifyData, setIdentifyData] = useState<IdentifyData>(() => {
+    const kind = searchParams.get("kind")
+    const pick = searchParams.get("lane") === "appliance" ? KIND_CHIPS.find((k) => k.subType === kind) : undefined
+    return pick ? { ...DEFAULT_IDENTIFY_DATA, itemCategory: KIND_CATEGORY, subType: pick.subType } : { ...DEFAULT_IDENTIFY_DATA }
+  })
   // Downscaled nameplate photo from IdentifyStep — attached as the item photo
   // after creation. Not persisted in the wizard session (a File can't be), so
   // a resumed session simply starts without one.

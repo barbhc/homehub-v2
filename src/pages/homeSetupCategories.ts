@@ -20,7 +20,8 @@ export const CATEGORIES: Category[] = [
   {
     key: "safety", label: "Safety", blurb: "Alarms and the extinguisher",
     questions: [
-      { fact: "has_smoke_alarms", text: "Smoke or carbon-monoxide alarms in the home?" },
+      { fact: "has_smoke_alarms", text: "Smoke alarms in the home?" },
+      { fact: "has_co_alarms", text: "Carbon monoxide (CO) alarms in the home?" },
       { fact: "has_extinguisher", text: "A fire extinguisher you keep?" },
     ],
   },

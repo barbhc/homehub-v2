@@ -44,9 +44,11 @@ const HAZARD_PATTERNS: RegExp[] = [
   // range" and "clean the propane grill grates" are descriptions, not gas work.
   /\b(propane|natural gas|lp gas|lpg)\b[^.]{0,30}\b(tank|cylinder|regulator|line|valve|connection|leak|orifice|conversion|hook-?up)|\b(tank|cylinder|regulator|valve|connection|leak|orifice)\b[^.]{0,30}\b(propane|natural gas|lp gas|lpg)\b|\bconver(t|sion)\b[^.]{0,20}\b(propane|natural gas|lp)\b/i,
   // CO itself — but testing the CO alarm is a homeowner's job, and "Co." is a
-  // company. Case-sensitive on purpose: the gas is written "CO".
-  /\bcarbon monoxide(?!\s+(detector|alarm|sensor|monitor))/i,
-  /\bCO\b(?![\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
+  // company. Case-sensitive on purpose: the gas is written "CO". The app spells
+  // it "carbon monoxide (CO) alarm" (before-friends B1), so the device may
+  // follow the "(CO)" as well as the words.
+  /\bcarbon monoxide(?!\s+(?:\(CO\)\s+)?(detector|alarm|sensor|monitor))/i,
+  /\bCO\b(?!\)?[\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
   // Ignition and flame proving on gas appliances.
   /\bpilot\b|\bthermocouple|\bthermopile|\bflame\s*(sensor|rod|probe)|\bignit(er|or)\b|\bhot surface ignit|\bspark ignit/i,
   // Furnace / boiler / water-heater burners (a range's burner caps are cleaning).

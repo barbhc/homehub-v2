@@ -7,7 +7,7 @@
  * invisible. Found walking the real flow on the emulator, 2026-11-18.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 
 const dash = vi.hoisted(() => ({ totalItems: 0, scheduledTaskCount: 2, upcoming: [] as unknown[] }))
@@ -40,6 +40,16 @@ vi.mock("@/components/dashboard/WhatsNewBanner", () => ({ WhatsNewBanner: () => 
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => <div data-testid="push-nudge" /> }))
 vi.mock("@/components/dashboard/ProfileCompletionBanner", () => ({ ProfileCompletionBanner: () => <div data-testid="profile-banner" /> }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
+// The card's own states are WhatsInYourHomeCard.test.tsx's; here, only whether Home places it and honours its pin.
+vi.mock("@/components/home/WhatsInYourHomeCard", () => ({
+  WhatsInYourHomeCard: ({ onEngaged, onFinished }: { onEngaged: () => void; onFinished: () => void }) => (
+    <div data-testid="empty-home-card">
+      <button type="button" onClick={onEngaged}>stub: engaged</button>
+      <button type="button" onClick={onFinished}>stub: finished</button>
+    </div>
+  ),
+}))
+
 // The card's own states are NextStepCard.test.tsx's; here, only whether Home places it.
 vi.mock("@/components/home/NextStepCard", () => ({
   NextStepCard: ({ totalItems }: { totalItems: number }) => <div data-testid="next-step-card" data-items={totalItems} />,
@@ -88,12 +98,49 @@ describe("Home — tasks before any item", () => {
     expect(screen.queryByTestId("push-nudge")).toBeNull()
   })
 
-  it("a home with nothing at all is still new: the hero, and no label card", () => {
+  it("a home with nothing at all is still new: What's in your home?, and no label card (before-friends mock 1)", () => {
     dash.scheduledTaskCount = 0
     dash.upcoming = []
     renderHome()
-    expect(screen.getByText("Let's set up your home")).toBeInTheDocument()
+    expect(screen.getByTestId("empty-home-card")).toBeInTheDocument()
+    // Not rendered at all (toHaveCount(0) in the e2e walk): the old hero, its
+    // button, the monthly card (decision 5), the label card, and the week.
+    expect(screen.queryByText("Let's set up your home")).toBeNull()
+    expect(screen.queryByText("Add your first item")).toBeNull()
+    expect(screen.queryByText("This month at your home")).toBeNull()
     expect(screen.queryByTestId("next-step-card")).toBeNull()
+    expect(screen.queryByTestId("next-up-title")).toBeNull()
+  })
+
+  it("the pin: once she has engaged, a refresh that finds her first item keeps the card; Done hands Home back", () => {
+    dash.scheduledTaskCount = 0
+    dash.upcoming = []
+    const { rerender } = renderHome()
+    fireEvent.click(screen.getByRole("button", { name: "stub: engaged" }))
+    // Her first Add lands: Home's refresh now says one item and one task.
+    dash.totalItems = 1
+    dash.scheduledTaskCount = 1
+    dash.upcoming = [task("ti-1", "Clean the dishwasher filter", "critical")]
+    rerender(<MemoryRouter><Home /></MemoryRouter>)
+    expect(screen.getByTestId("empty-home-card")).toBeInTheDocument()
+    expect(screen.queryByTestId("next-up-title")).toBeNull()
+    expect(screen.queryByTestId("profile-banner")).toBeNull()
+    expect(screen.queryByTestId("push-nudge")).toBeNull()
+    // Done: the pin lets go, and the normal Home renders.
+    fireEvent.click(screen.getByRole("button", { name: "stub: finished" }))
+    expect(screen.queryByTestId("empty-home-card")).toBeNull()
+    expect(screen.getAllByTestId("next-up-title")[0]).toHaveTextContent("Clean the dishwasher filter")
+  })
+
+  it("without the pin, a home that is no longer empty is the normal Home", () => {
+    dash.scheduledTaskCount = 0
+    dash.upcoming = []
+    const { rerender } = renderHome()
+    expect(screen.getByTestId("empty-home-card")).toBeInTheDocument()
+    dash.scheduledTaskCount = 2
+    dash.upcoming = [task("ti-1", "Test smoke and CO alarms", "critical")]
+    rerender(<MemoryRouter><Home /></MemoryRouter>)
+    expect(screen.queryByTestId("empty-home-card")).toBeNull()
   })
 
   it("an early home keeps the card; three items retire it", () => {

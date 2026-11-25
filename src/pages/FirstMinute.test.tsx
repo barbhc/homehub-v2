@@ -173,7 +173,7 @@ describe("step 3 — worth doing this month (condo, 94110, November)", () => {
   it("the mock's rows and questions; 7: three rows, two questions; no explanation lines (owner, 2026-11-20)", async () => {
     await toList(/Condo/)
     expect(screen.getByText("November · Condo · 94110")).toBeInTheDocument()
-    expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Replace the air filter", "Check the water heater's quake straps"])
+    expect(rowTitles()).toEqual(["Test the smoke alarms", "Replace the air filter", "Check the water heater's quake straps"])
     expect(screen.queryByText("The clocks changed this month. Test them together.")).not.toBeInTheDocument()
     expect(screen.getByText("Is there a water heater in your unit?")).toBeInTheDocument()
     expect(screen.getAllByRole("radiogroup").length).toBe(2)
@@ -444,7 +444,7 @@ describe("the skip path (Version E)", () => {
     renderFlow()
     expect(screen.getByText("What most homes need now. Nothing is added until you tap Add.")).toBeInTheDocument()
     expect(screen.queryByText(/Step \d of 3/)).toBeNull()
-    expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Replace the air filter"])
+    expect(rowTitles()).toEqual(["Test the smoke alarms", "Replace the air filter"])
     expect(screen.queryByText(/clock/i)).toBeNull()
     expect(screen.getByRole("button", { name: "Add zip" })).toBeInTheDocument()
   })
@@ -454,7 +454,7 @@ describe("the house in Minneapolis", () => {
   it("outdoor taps 'if not done yet', and the filter question for a furnace", async () => {
     atArea(MN)
     await toList(/House/)
-    expect(rowTitles()).toEqual(["Test smoke and CO alarms", "Shut off and drain the outdoor taps", "Replace the air filter"])
+    expect(rowTitles()).toEqual(["Test the smoke alarms", "Shut off and drain the outdoor taps", "Replace the air filter"])
     expect(screen.getByText("Any outdoor taps or hose bibs?")).toBeInTheDocument()
     expect(screen.getByText("Does the furnace take a filter?")).toBeInTheDocument()
     expect(screen.queryByTestId("not-on-your-list")).toBeNull()

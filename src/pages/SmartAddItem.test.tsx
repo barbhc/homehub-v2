@@ -12,7 +12,7 @@
  * the (real) post-create lookup renames.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import type { ItemUnit } from "@/integrations/types"
 
@@ -339,5 +339,57 @@ describe("arriving from the empty Items tab with ?lane=", () => {
   it("an unknown lane is just the chooser", () => {
     renderWizard("/inventory/add?lane=bogus")
     expect(screen.getByRole("heading", { name: "What are you adding?" })).toBeInTheDocument()
+  })
+})
+
+/**
+ * Before-friends B5: Home's "Add My Exact Models" sends ?lane=appliance&kind=…
+ * when exactly one appliance chip was ticked. The kind is pre-picked under
+ * "What is it?" — exactly what tapping that chip sets. An allowlist: anything
+ * else is ignored, never cast.
+ */
+describe("?kind= pre-picks What is it? in the appliance lane", () => {
+  const kindChip = (label: string) => within(screen.getByTestId("identify-kind")).getByRole("radio", { name: label })
+
+  it("?lane=appliance&kind=dishwasher opens the appliance lane with Dishwasher checked, and nothing else", () => {
+    renderWizard("/inventory/add?lane=appliance&kind=dishwasher")
+    expect(document.getElementById("identify-brand")).not.toBeNull()
+    expect(kindChip("Dishwasher")).toHaveAttribute("aria-checked", "true")
+    for (const other of ["Washer", "Dryer", "Fridge", "Water heater", "Furnace", "Oven or range", "Something else"]) {
+      expect(kindChip(other)).toHaveAttribute("aria-checked", "false")
+    }
+  })
+
+  it("an item made from it is filed as that kind", async () => {
+    renderWizard("/inventory/add?lane=appliance&kind=washing-machine")
+    fireEvent.change(document.getElementById("identify-brand")!, { target: { value: "LG" } })
+    fireEvent.change(document.getElementById("identify-model")!, { target: { value: "WM4000HWA" } })
+    fireEvent.click(screen.getByRole("button", { name: /^Add the manual$/ }))
+    await screen.findByRole("heading", { name: "Add the manual" })
+    expect(svc.createItemUnit).toHaveBeenCalledWith(expect.objectContaining({ item_category: "major_appliance", sub_type: "washing-machine" }))
+  })
+
+  it("an unknown kind pre-picks nothing", () => {
+    renderWizard("/inventory/add?lane=appliance&kind=toaster")
+    for (const k of ["Washer", "Dryer", "Dishwasher", "Fridge", "Water heater", "Furnace", "Oven or range"]) {
+      expect(kindChip(k)).toHaveAttribute("aria-checked", "false")
+    }
+  })
+
+  it("a kind without lane=appliance pre-picks nothing", async () => {
+    renderWizard("/inventory/add?kind=dishwasher")
+    fireEvent.click(screen.getByRole("button", { name: /Appliance or device/ }))
+    expect(kindChip("Dishwasher")).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("a saved session for this home still prompts, and Finish adding it wins over the kind", () => {
+    localStorage.setItem("homehub-smart-add-session", JSON.stringify({
+      itemId: "item-9", propertyId: "h1", step: "identify", itemName: "Beer fridge", brand: null, model: null,
+      locationId: null, hasManual: false, hasTasks: false, createdAt: new Date(Date.now() - 3600_000).toISOString(),
+    }))
+    renderWizard("/inventory/add?lane=appliance&kind=dishwasher")
+    expect(screen.getByText("Pick up where you left off")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Finish adding it" }))
+    expect((document.getElementById("identify-name") as HTMLInputElement).value).toBe("Beer fridge")
   })
 })

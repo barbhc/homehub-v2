@@ -88,7 +88,7 @@ function isDate(x: unknown): x is string {
 }
 /** Every CareFacts key — a Record so adding a fact without listing it here is a type error. */
 const CARE_FACT_KEYS: Record<keyof CareFacts, true> = {
-  has_smoke_alarms: true, has_extinguisher: true, has_water_heater: true, has_hvac_service: true, termite_risk: true,
+  has_smoke_alarms: true, has_co_alarms: true, has_extinguisher: true, has_water_heater: true, has_hvac_service: true, termite_risk: true,
   birds_roosting: true, rodents: true, has_gutters: true, building_handles_pests: true, building_handles_exterior: true,
   has_air_filter: true, has_central_air: true, has_fireplace: true, has_outdoor_taps: true,
 }

@@ -187,6 +187,7 @@ const HAZARDOUS_TITLES = [
   "Recharge the A/C refrigerant",
   "Check refrigerant charge",
   "Test for carbon monoxide leaks",
+  "Test for carbon monoxide (CO) leaks",
   "Replace a circuit breaker",
   "Install a new breaker",
   "Replace the water heater heating element",
@@ -207,6 +208,9 @@ const SAFE_TITLES = [
   "Test smoke detector",
   "Test the CO alarm",
   "Test carbon monoxide detector",
+  // The app's own spelling since before-friends B1: the "(CO)" sits between the gas and the device.
+  "Check the carbon monoxide (CO) alarm's date",
+  "Test smoke and carbon monoxide (CO) detectors before heating season.",
   "Reset a tripped breaker",
   "Test GFCI outlets",
   "Clean the refrigerator coils",

@@ -198,3 +198,67 @@ describe("typicalFilterCadence (D4)", () => {
     expect(withTask.find((s) => s.entry.key === "washer.drain_filter")?.backstopFor?.title).toBe("Clean the Drain Pump Filter")
   })
 })
+
+/**
+ * Before-friends B1: smoke and carbon monoxide (CO) are two answers. The CO
+ * alarm's replace-by date is its own archetype, ruled BEFORE the alarm test
+ * and the battery change so neither swallows it.
+ */
+describe("the carbon monoxide (CO) alarm's date — its own archetype", () => {
+  it.each([
+    ["Check the carbon monoxide (CO) alarm's date", "alarm.co.check"],
+    ["Check the CO detector's expiry date", "alarm.co.check"],
+    ["Test the smoke alarms", "safety.test.alarm"],
+    ["Test smoke and CO alarms", "safety.test.alarm"],
+    ["Test the CO alarm", "safety.test.alarm"],
+    ["Replace CO alarm batteries", "battery.replace.alarm"],
+    ["Replace alarm batteries", "battery.replace.alarm"],
+  ])("%s → %s", (title, archetype) => {
+    expect(archetypeOf(title)).toBe(archetype)
+  })
+
+  it("near misses are not the CO check: a date with no CO alarm, or a CO alarm with no date", () => {
+    for (const t of ["Check the condenser coil date", "Check smoke alarm expiry date", "Clean the coils on this date", "Test the CO alarm"]) {
+      expect(archetypeOf(t), t).not.toBe("alarm.co.check")
+    }
+    // What they are instead, unchanged from before the new entry joined the library.
+    expect(archetypeOf("Check the condenser coil date")).toBe("coils.clean")
+    expect(archetypeOf("Clean the coils on this date")).toBe("coils.clean")
+  })
+
+  it("the new title joins the similarity pool without moving anything that was already there", () => {
+    // Their similarity to the new title is 0.33, 0.40 and 0.20; the threshold is 0.5.
+    expect(archetypeOf("Check the fire extinguisher")).toBe("extinguisher.check")
+    expect(archetypeOf("Check the alarm")).toBeNull()
+    expect(archetypeOf("Check the water heater's quake straps")).toBe("quake.strap")
+  })
+
+  it("the library's smoke entry is the smoke test alone; the CO entry is yearly, essential and sourced", () => {
+    const byKey = (k: string) => LIBRARY.find((e) => e.key === k)!
+    expect(byKey("home.alarm_test").title).toBe("Test the smoke alarms")
+    expect(byKey("home.alarm_test").fact).toBe("has_smoke_alarms")
+    const co = byKey("home.co_alarm_check")
+    expect(co).toMatchObject({
+      kind: "home", archetype: "alarm.co.check", title: "Check the carbon monoxide (CO) alarm's date",
+      careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual",
+      minutes: 2, cadenceLabel: "Yearly", fact: "has_co_alarms",
+      source: "Alarm makers' end-of-life guidance (Kidde, First Alert)",
+    })
+    // D4: makers differ (Kidde 7 to 10, others 5 to 7); the date on the unit is what counts.
+    expect(co.why).toBe("Their sensors wear out. Most last 5 to 10 years, and the replace-by date is on the back.")
+  })
+
+  it("suggestionsForHome offers the CO check only when has_co_alarms is true", () => {
+    const keys = (facts: Parameters<typeof suggestionsForHome>[0]) => suggestionsForHome(facts, []).map((s) => s.entry.key)
+    expect(keys({ has_smoke_alarms: true })).not.toContain("home.co_alarm_check")
+    expect(keys({ has_smoke_alarms: true, has_co_alarms: false })).not.toContain("home.co_alarm_check")
+    expect(keys({ has_co_alarms: true })).toEqual(["home.co_alarm_check"])
+  })
+
+  it("a home with a stored 'Test smoke and CO alarms' task is still offered the CO check, and never a second alarm test", () => {
+    const s = suggestionsForHome({ has_smoke_alarms: true, has_co_alarms: true }, [{ title: "Test smoke and CO alarms", scheduleType: "semiannual" }])
+    const keys = s.map((x) => x.entry.key)
+    expect(keys).toContain("home.co_alarm_check")
+    expect(keys).not.toContain("home.alarm_test")
+  })
+})

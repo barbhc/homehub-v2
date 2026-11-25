@@ -99,7 +99,7 @@ const STARTERS: Starter[] = [
   { key: "home.leak_check", monthly: true, system: "plumbing_inside", windows: () => [[3, 3]], reason: () => "Fix a Leak Week is in March." },
   { key: "home.cooling_service", monthly: true, system: "cooling", windows: (c) => [COOLING[c ?? "moderate"]], question: () => "Do you have central air conditioning?", reason: (i) => (i.climate === "hot" ? "Book it before the heat arrives." : "Book it before the first hot week.") },
   { key: "home.chimney", monthly: true, system: "fireplace", windows: (c) => [CHIMNEY[c ?? "moderate"]], question: () => "Do you have a fireplace or wood stove?", reason: () => "Before the first fire of the season." },
-  { key: "home.alarm_batteries", monthly: true, system: "alarm_batteries", windows: () => [[3, 3], [11, 11]], question: () => "Do you have smoke or CO alarms?", reason: () => "Easy to remember with the clock change. Skip it for sealed 10-year alarms." },
+  { key: "home.alarm_batteries", monthly: true, system: "alarm_batteries", windows: () => [[3, 3], [11, 11]], question: () => "Do you have smoke alarms?", reason: () => "Easy to remember with the clock change. Skip it for sealed 10-year alarms." },
   { key: "home.termite", monthly: true, system: "pests", windows: () => [[4, 5]], homeTypes: ["house", "townhouse"], question: () => "Are termites a known risk where you live?", knownHere: (i) => i.termites ?? null, reason: (i) => (i.termites === true ? "Termites are common here, and they swarm as it warms." : "Termites swarm as it warms.") },
 ]
 
