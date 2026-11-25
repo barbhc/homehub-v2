@@ -88,8 +88,9 @@ describe("the no-manual card", () => {
     expect(rows()).toHaveLength(2)
   })
 
-  it("an unknown kind: no rows, today's line, and Add the Manual", () => {
-    renderCare(named("Sharp SMD2470ASY24"))
+  // An UNKNOWN kind asks "What is it?" instead (PR C, CareBlock.whatIsIt.test.tsx).
+  it("a kind with no typical care: no rows, today's line, and Add the Manual", () => {
+    renderCare(named("Sharp Microwave Drawer"))
     expect(within(card()).getByText("No upkeep yet")).toBeInTheDocument()
     expect(within(card()).getByText("The manual is where this item's schedule, warranty window and answers come from.")).toBeInTheDocument()
     expect(screen.queryAllByTestId("suggested-card-row")).toHaveLength(0)

@@ -97,19 +97,9 @@ export async function runPostCreateLookup(item: ItemUnit): Promise<void> {
 
   // Name: only the composed "Brand Model" placeholder is ours to replace, and
   // only once we actually know what kind of thing it is.
-  const placeholder = `${brand} ${model}`.trim()
-  if (fillCategory && current.display_name.trim() === placeholder) {
-    const [existing, rooms] = await Promise.all([getItemUnits(current.home_id), getRooms(current.home_id)])
-    const renamed = composeItemName({
-      typeLabel: categoryLabel({ item_category: mapped.itemCategory, sub_type: mapped.subType }),
-      brand,
-      model,
-      room: rooms.data?.find((rm) => rm.room_id === current.room_id)?.name ?? null,
-      existingNames: (existing.data ?? [])
-        .filter((i) => i.item_unit_id !== current.item_unit_id)
-        .map((i) => i.display_name),
-    })
-    if (renamed && renamed !== "Item" && renamed !== placeholder) updates.display_name = renamed
+  if (fillCategory) {
+    const renamed = await nameForKnownKind(current, { item_category: mapped.itemCategory, sub_type: mapped.subType })
+    if (renamed) updates.display_name = renamed
   }
 
   // Specs: suggestions only. Off-schema keys are refused here for the same
@@ -129,4 +119,41 @@ export async function runPostCreateLookup(item: ItemUnit): Promise<void> {
   if (write.error) {
     track("identity_lookup_error", { message: write.error.message.slice(0, 120), phase: "post_create_write" })
   }
+}
+
+/**
+ * The name an item takes now that its kind is known, or null when its name is
+ * not ours to change. Only the composed "Brand Model" placeholder is replaced
+ * (HH-125: a name the owner typed, at creation or later, is never touched),
+ * and the new name is the kind ("Dishwasher"), with the room appended only
+ * when that name is already taken in this home (composeItemName).
+ *
+ * The ONE rule for this, shared by the lookup above and the item page's "What
+ * is it?" (before-friends PR C), so the two can never rename differently.
+ * `item` must be the item as it is NOW.
+ */
+export async function nameForKnownKind(
+  item: Pick<ItemUnit, "item_unit_id" | "home_id" | "display_name" | "brand" | "model" | "room_id">,
+  kind: { item_category: string | null; sub_type: string | null },
+): Promise<string | null> {
+  const brand = (item.brand ?? "").trim()
+  const model = (item.model ?? "").trim()
+  if (!brand || !model) return null
+  const placeholder = `${brand} ${model}`
+  if (item.display_name.trim() !== placeholder) return null
+  const [existing, rooms] = await Promise.all([getItemUnits(item.home_id), getRooms(item.home_id)])
+  // A failed read only weakens the collision check (a duplicate name is
+  // survivable, per composeItemName); the rename still follows the kind.
+  if (existing.error) console.warn(`[items] could not read items to name ${item.item_unit_id} (home ${item.home_id}):`, existing.error.message)
+  if (rooms.error) console.warn(`[items] could not read rooms to name ${item.item_unit_id} (home ${item.home_id}):`, rooms.error.message)
+  const renamed = composeItemName({
+    typeLabel: categoryLabel(kind),
+    brand,
+    model,
+    room: rooms.data?.find((rm) => rm.room_id === item.room_id)?.name ?? null,
+    existingNames: (existing.data ?? [])
+      .filter((i) => i.item_unit_id !== item.item_unit_id)
+      .map((i) => i.display_name),
+  })
+  return renamed && renamed !== "Item" && renamed !== placeholder ? renamed : null
 }

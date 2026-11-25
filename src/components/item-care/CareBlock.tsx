@@ -43,6 +43,8 @@ import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
 import { comesDueOn } from "../../../shared/tasks/snooze"
 import { updateItemUnit } from "@/modules/items/services/itemService"
+import { nameForKnownKind } from "@/modules/inventory/services/postCreateLookup"
+import { WHAT_IS_IT_CHIPS, KIND_CATEGORY } from "@/components/smart-add/identifyData"
 import { ScanningLine } from "@/components/manuals/ScanningLine"
 import type { ManualReading } from "@/lib/manualReviewState"
 import { SupplyRows } from "./SupplyRows"
@@ -929,6 +931,31 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     setDismissedLocal((d) => [...d, key])
     return { error: null }
   }
+
+  // "What is it?" (PR C): shown only while we genuinely don't know. An item
+  // filed under a kind the library has no care for (a garbage disposal) is
+  // known, and "We couldn't tell what this is" would be untrue of it.
+  const unidentified = kindOf(item) === null && (!item.sub_type || item.sub_type === "other")
+  const [picking, setPicking] = useState<string | null>(null)
+  const [pickError, setPickError] = useState<string | null>(null)
+  // Her tap is the only thing that files it. The name changes only when it is
+  // still the composed "Brand Model" placeholder (nameForKnownKind, the
+  // lookup's own rule). On success the page's item updates and this card
+  // re-renders with that kind's typical care; on failure the chips stay.
+  const pickKind = async (subType: string) => {
+    setPickError(null)
+    setPicking(subType)
+    const kind = { item_category: KIND_CATEGORY, sub_type: subType }
+    const display_name = await nameForKnownKind(item, kind)
+    const res = await updateItemUnit(homeId, item.item_unit_id, { ...kind, category: subType, ...(display_name ? { display_name } : {}) })
+    setPicking(null)
+    if (res.data) {
+      onItemUpdate?.(res.data)
+      return
+    }
+    console.warn(`[item care] could not file ${item.item_unit_id} (home ${homeId}) as ${subType}:`, res.error?.message)
+    setPickError("Couldn't save that. Try again.")
+  }
   // Order the schedule sensibly: genuinely due/overdue first (soonest first),
   // with never-started cadences ("Start anytime") sinking to the bottom instead
   // of dominating the top with alarming back-dated "overdue" dates.
@@ -1001,6 +1028,10 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     // the page on: the task lands under Maintenance and anything left over
     // sits in the Suggested band below it (before-friends D6).
     const offered = !hasManual ? suggestions.slice(0, 2) : []
+    // PR C: no typical care because we don't know what it is. Needs the page's
+    // item update; without it the pick would land and nothing would change.
+    const askKind = !hasManual && offered.length === 0 && unidentified && !!onItemUpdate
+    const hasIdentity = !!(item.brand ?? "").trim() || !!(item.model ?? "").trim()
     return (
       <Card>
         <div data-testid="no-upkeep-card" className="flex flex-col items-center gap-3 px-4 py-7 text-center">
@@ -1014,8 +1045,35 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               ? "No upkeep found in this manual yet."
               : offered.length > 0
                 ? `Here's what most ${kindLabel} need. Add the manual for this one's exact schedule.`
-                : "The manual is where this item's schedule, warranty window and answers come from."}
+                : askKind
+                  ? hasIdentity
+                    ? "We couldn't tell what this is from its model. Pick one to see its typical care."
+                    : "Pick what this is to see its typical care."
+                  : "The manual is where this item's schedule, warranty window and answers come from."}
           </p>
+          {askKind && (
+            <>
+              <div role="group" aria-label="What is it?" data-testid="what-is-it" className="flex flex-wrap justify-center gap-2">
+                {WHAT_IS_IT_CHIPS.map((k) => (
+                  <button
+                    key={k.subType}
+                    type="button"
+                    onClick={() => void pickKind(k.subType)}
+                    disabled={picking !== null}
+                    aria-busy={picking === k.subType}
+                    className="min-h-11 rounded-full border px-4 text-[0.875rem] font-medium disabled:opacity-50"
+                    style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+              {pickError && (
+                <p role="alert" className="text-[0.75rem] font-medium" style={{ color: CLAY }}>{pickError}</p>
+              )}
+              {onAddManual && <p className="text-[0.84375rem]" style={{ color: SUB }}>Or add the manual for the exact schedule.</p>}
+            </>
+          )}
           {offered.length > 0 && (
             <div className="flex w-full flex-col gap-2">
               {offered.map((sug) => (

@@ -57,3 +57,15 @@ export const KIND_CHIPS: { subType: string; label: string }[] = [
   { subType: "oven-range", label: "Oven or range" },
 ]
 export const KIND_CATEGORY = "major_appliance" as const
+
+/**
+ * "What is it?" on the no-manual card (before-friends PR C, mock r4-m2-nokind):
+ * the add screen's chips, by its labels, but only the kinds the care library
+ * has item-level care for. Water heater and Oven or range have none, so
+ * picking one would show nothing (CareBlock.whatIsIt.test.tsx pins both).
+ */
+export const WHAT_IS_IT_CHIPS = ["dishwasher", "washing-machine", "dryer", "refrigerator", "hvac-furnace"].map((subType) => {
+  const chip = KIND_CHIPS.find((k) => k.subType === subType)
+  if (!chip) throw new Error(`WHAT_IS_IT_CHIPS: ${subType} is not one of the add screen's KIND_CHIPS`)
+  return chip
+})
