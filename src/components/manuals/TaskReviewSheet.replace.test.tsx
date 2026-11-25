@@ -124,3 +124,17 @@ describe("Replace or Keep Both in the review (PR D)", () => {
     expect(await save(onSave)).toEqual([])
   })
 })
+
+describe("the choice is a keyboard radio group (Codex review, PR D)", () => {
+  it("one tab stop, and the arrow keys move the choice", () => {
+    renderSheet()
+    const water = panelFor("Replace the water filter")
+    const replace = within(water).getByRole("radio", { name: "Replace" })
+    const keep = within(water).getByRole("radio", { name: "Keep Both" })
+    expect(replace).toHaveAttribute("tabindex", "0")
+    expect(keep).toHaveAttribute("tabindex", "-1")
+    fireEvent.keyDown(replace, { key: "ArrowRight" })
+    expect(keep).toHaveAttribute("aria-checked", "true")
+    expect(keep).toHaveFocus()
+  })
+})

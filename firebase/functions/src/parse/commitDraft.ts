@@ -80,6 +80,10 @@ export interface TypicalChoiceApplied {
   /** The library entry's key, added to the item's `dismissedCare` on Replace. */
   libraryKey: string
   choice: "replace" | "keep_both"
+  /** The template's `updateTime` when the caller validated it. Replace writes
+   *  only if it is unchanged since, so a template edited, moved or retired in
+   *  between fails the save visibly instead of being retired on stale facts. */
+  templateUpdateTime: Timestamp
 }
 
 /** The fields of a task row provenance reads. */
@@ -557,23 +561,21 @@ async function executeCommit(
   let typicalReplaced = 0
   let typicalKeptBoth = 0
   const replacedIds = new Set<string>()
-  const itemRef = db.doc(`homes/${homeId}/items/${item.itemUnitId}`)
+  const dismissKeys = new Set<string>()
   for (const c of chosenWritten) {
     if (c.choice === "keep_both") {
       typicalKeptBoth++
       continue
     }
     if (replacedIds.has(c.templateId)) continue
-    const tplRef = templatesCol.doc(c.templateId)
-    const tplSnap = await tplRef.get()
-    // Gone since commitManualDraft checked it (removed by another member):
-    // nothing left to retire. The manual's task was still written.
-    if (!tplSnap.exists || tplSnap.get("deletedAt") != null || !tplSnap.updateTime) continue
     replacedIds.add(c.templateId)
+    // Conditional on the snapshot commitManualDraft validated (same home,
+    // this item, a library task, not deleted): anything changed since, the
+    // template removed included, fails the whole batch and the save says so.
     batch.update(
-      tplRef,
+      templatesCol.doc(c.templateId),
       { isActive: false, deletedAt: nowTs, replacedByManualId: manualId, updatedAt: nowTs },
-      { lastUpdateTime: tplSnap.updateTime },
+      { lastUpdateTime: c.templateUpdateTime },
     )
     const inst = await instancesCol.where("taskTemplateId", "==", c.templateId).get()
     for (const d of inst.docs) {
@@ -582,8 +584,15 @@ async function executeCommit(
         batch.update(d.ref, { deletedAt: nowTs, updatedAt: nowTs }, { lastUpdateTime: d.updateTime })
       }
     }
-    batch.update(itemRef, { dismissedCare: FieldValue.arrayUnion(c.libraryKey), updatedAt: nowTs })
+    dismissKeys.add(c.libraryKey)
     typicalReplaced++
+  }
+  // One item write for every key, however many were replaced.
+  if (dismissKeys.size > 0) {
+    batch.update(db.doc(`homes/${homeId}/items/${item.itemUnitId}`), {
+      dismissedCare: FieldValue.arrayUnion(...dismissKeys),
+      updatedAt: nowTs,
+    })
   }
 
   // flags: increment missed_scans (keep the task).

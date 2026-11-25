@@ -51,20 +51,27 @@ export interface TypicalChoiceEntry {
 /** D11: only a same-kind-of-job match is presumed to be a replacement. */
 export const defaultChoiceFor = (by: ReplaceMatch["by"]): TypicalChoice => (by === "archetype" ? "replace" : "keep_both")
 
+/**
+ * Is this one pair a match at all, and how? The pairwise test the matcher is
+ * built from — exported so `commitManualDraft` can refuse a choice whose row
+ * and typical task do not match (a stale or forged answer) by the SAME rule
+ * the review used to ask it.
+ */
+export function pairMatch(rowTitle: string, typical: Pick<TypicalTask, "title" | "libraryKey">): ReplaceMatch["by"] | null {
+  const a = archetypeByRule(rowTitle)
+  if (a !== null && a === (entryByKey(typical.libraryKey)?.archetype ?? null)) return "archetype"
+  return titleSimilarity(rowTitle, typical.title) >= TITLE_MATCH_THRESHOLD ? "similarity" : null
+}
+
 export function matchManualToTypical(rowTitles: readonly string[], typical: readonly TypicalTask[]): ReplaceMatch[] {
   if (rowTitles.length === 0 || typical.length === 0) return []
-  // By rule only: the similarity fallback inside archetypeOf would turn a
-  // close-wording match into a same-job one and default it to Replace.
-  const rowArchetypes = rowTitles.map((t) => archetypeByRule(t))
-  const typicalArchetypes = typical.map((t) => entryByKey(t.libraryKey)?.archetype ?? null)
-
+  // By rule only (pairMatch): the similarity fallback inside archetypeOf
+  // would turn a close-wording match into a same-job one and default it to Replace.
   const pairs: { i: number; j: number; by: ReplaceMatch["by"]; sim: number }[] = []
   for (let i = 0; i < rowTitles.length; i++) {
     for (let j = 0; j < typical.length; j++) {
-      const sim = titleSimilarity(rowTitles[i], typical[j].title)
-      const a = rowArchetypes[i]
-      if (a !== null && a === typicalArchetypes[j]) pairs.push({ i, j, by: "archetype", sim })
-      else if (sim >= TITLE_MATCH_THRESHOLD) pairs.push({ i, j, by: "similarity", sim })
+      const by = pairMatch(rowTitles[i], typical[j])
+      if (by) pairs.push({ i, j, by, sim: titleSimilarity(rowTitles[i], typical[j].title) })
     }
   }
   // Archetype before similarity, then the closer wording; ties keep input order.

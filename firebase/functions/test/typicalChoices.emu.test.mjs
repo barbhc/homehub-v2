@@ -23,7 +23,7 @@ import { getApps, initializeApp } from "firebase-admin/app"
 import { getFirestore, Timestamp } from "firebase-admin/firestore"
 import { normalizeTaskRow } from "../lib/shared/parse/parseCore.js"
 import { commitDraft } from "../lib/firebase/functions/src/parse/commitDraft.js"
-import { commitManualDraft } from "../lib/firebase/functions/src/parse/commitManualDraft.js"
+import { commitManualDraft, validTypicalChoices } from "../lib/firebase/functions/src/parse/commitManualDraft.js"
 import { matchManualToTypical, defaultChoiceFor } from "../lib/shared/care/manualReplaces.js"
 
 assert.ok(process.env.FIRESTORE_EMULATOR_HOST, "FIRESTORE_EMULATOR_HOST must be set (run via emulators:exec)")
@@ -244,4 +244,41 @@ test("Malformed typicalChoices are refused at the door (Zod), and nothing is wri
   assert.equal(await code("replace"), "invalid-argument")
   assert.deepEqual((await manualTasks(H)).map((d) => d.get("title")), [])
   assert.equal((await tpl(H, DISH_FILTER.id)).get("isActive"), true)
+})
+
+test("A choice whose row and template do not match is not honoured (Codex review): nothing is retired", async () => {
+  const H = home("mismatch")
+  await setup(H, { typical: [WATER_FILTER] })
+  const res = await save(H, [row("Run a cleaning cycle")], {
+    typicalChoices: [{ title: "Run a cleaning cycle", templateId: WATER_FILTER.id, choice: "replace" }],
+  })
+  assert.equal(res.ok, true)
+  assert.equal(res.typicalReplaced, 0)
+  assert.deepEqual((await manualTasks(H)).map((d) => d.get("title")), ["Run a cleaning cycle"])
+  assert.equal((await tpl(H, WATER_FILTER.id)).get("isActive"), true)
+  assert.equal((await tpl(H, WATER_FILTER.id)).get("deletedAt"), null)
+})
+
+test("A typical task changed after it was validated fails the whole save, visibly — nothing half-written", async () => {
+  const H = home("raced")
+  await setup(H, { typical: [DISH_FILTER] })
+  const choices = await validTypicalChoices(db, {
+    homeId: H, manualId: "m1", itemUnitId: ITEM, itemExists: true,
+    rowTitles: ["Clean the filter"], choices: [{ title: "Clean the filter", templateId: DISH_FILTER.id, choice: "replace" }],
+  })
+  assert.equal(choices.size, 1)
+  // Another member edits the typical task in between.
+  await db.doc(`homes/${H}/taskTemplates/${DISH_FILTER.id}`).set({ title: "Clean the filter screen" }, { merge: true })
+  const item = { itemUnitId: ITEM, item_category: "dishwasher", sub_type: null, display_name: "Dishwasher", model: null, accessories: [] }
+  await assert.rejects(
+    commitDraft(db, {
+      homeId: H, manualId: "m1", item, requestId: "raced-1", chunks: [],
+      tasks: [{ ...normalizeTaskRow(row("Clean the filter")), typical_choice: choices.get(0) }],
+      now: new Date("2026-06-23T00:00:00Z"),
+    }),
+    (e) => e?.code === 9,
+  )
+  assert.deepEqual((await manualTasks(H)).map((d) => d.get("title")), [], "the manual task was not written either")
+  assert.equal((await tpl(H, DISH_FILTER.id)).get("isActive"), true)
+  assert.equal((await tpl(H, DISH_FILTER.id)).get("deletedAt"), null)
 })

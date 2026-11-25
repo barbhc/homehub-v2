@@ -562,12 +562,21 @@ export function TaskReviewSheet({
             ? <>Replaces your typical task &ldquo;{m.typical.title}&rdquo;</>
             : <>Same as your typical task &ldquo;{m.typical.title}&rdquo;?</>}
         </p>
+        {/* A radio group's keyboard: one tab stop (the selected option), and
+            the arrow keys move the choice and the focus together. */}
         <div role="radiogroup" aria-label={`${r.title}: replace your typical task, or keep both`}
+          onKeyDown={(e) => {
+            if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return
+            e.preventDefault()
+            const next = choice === "replace" ? "keep_both" : "replace"
+            setTypicalChoice((prev) => ({ ...prev, [r.id]: next }))
+            e.currentTarget.querySelector<HTMLButtonElement>(`[data-choice='${next}']`)?.focus()
+          }}
           className="mt-2 flex max-w-[22rem] overflow-hidden rounded-full border border-border">
           {options.map((o) => {
             const on = choice === o.id
             return (
-              <button key={o.id} type="button" role="radio" aria-checked={on}
+              <button key={o.id} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1} data-choice={o.id}
                 onClick={() => setTypicalChoice((prev) => ({ ...prev, [r.id]: o.id }))}
                 className={cn(
                   "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 text-[0.875rem] font-bold transition-colors",

@@ -18,6 +18,7 @@ import { pairReviewedWithDraft, type DraftRowLike } from "../../../../shared/tas
 import { CommitManualDraftRequest, type TypicalChoiceInput } from "./draftSchemas.js"
 import { parseCallableInput, storedText } from "../lib/validate.js"
 import { storedDocId } from "../lib/storedTask.js"
+import { pairMatch } from "../../../../shared/care/manualReplaces.js"
 import type { ParseItemFacts } from "./parseTypes.js"
 
 const REGION = "us-central1"
@@ -158,7 +159,8 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
       throw new HttpsError("failed-precondition", "This review is already being saved. Give it a moment.")
     }
     // A Replace is conditional on the typical task (and its open dates) being
-    // unchanged since the commit read them; gRPC 9 is that condition failing.
+    // unchanged since they were read; gRPC 9 is that condition failing, and 5
+    // is the template removed in between.
     // The batch is all-or-nothing, so none of the tasks were written.
     if (isFailedPrecondition(e)) {
       console.warn(`[commitManualDraft] typical task changed mid-save (home ${homeId}, manual ${manualId}):`, e)
@@ -199,12 +201,14 @@ export const commitManualDraft = onCall({ region: REGION, timeoutSeconds: 120 },
 })
 
 function isFailedPrecondition(e: unknown): boolean {
-  return !!e && typeof e === "object" && (e as { code?: unknown }).code === 9
+  const code = !!e && typeof e === "object" ? (e as { code?: unknown }).code : undefined
+  return code === 9 || code === 5
 }
 
 /**
  * Which rows carry a typical-task choice the server will honour, keyed by row
- * index. A choice counts only when its template:
+ * index. A choice counts only when the row and the template match by the
+ * review's own rule (`pairMatch`), and its template:
  *  - exists in THIS home and sits on THIS manual's item,
  *  - is not deleted, and
  *  - came from the care library (`externalKey` starts `library:`) — so a
@@ -258,7 +262,7 @@ export async function validTypicalChoices(
       drop(c, "template is on another item")
       continue
     }
-    if (snap.get("deletedAt") != null) {
+    if (snap.get("deletedAt") != null || !snap.updateTime) {
       drop(c, "template is deleted")
       continue
     }
@@ -267,8 +271,15 @@ export async function validTypicalChoices(
       drop(c, "template is not a typical (care library) task")
       continue
     }
+    const libraryKey = key.slice(LIBRARY_KEY_PREFIX.length)
+    // The review only asks about a pair the shared matcher matched; one that
+    // does not match (stale, or not from the review at all) is not honoured.
+    if (!pairMatch(c.title, { title: storedText(snap.get("title")) ?? "", libraryKey })) {
+      drop(c, "row and template do not match")
+      continue
+    }
     usedTemplates.add(c.templateId)
-    out.set(row, { templateId: c.templateId, libraryKey: key.slice(LIBRARY_KEY_PREFIX.length), choice: c.choice })
+    out.set(row, { templateId: c.templateId, libraryKey, choice: c.choice, templateUpdateTime: snap.updateTime })
   }
   return out
 }

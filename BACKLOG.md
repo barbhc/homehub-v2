@@ -57,6 +57,12 @@ branch that added it._
 - **An archived typical task** (`isActive: false`, `deletedAt` null — the
   item page's archive) still suppresses the manual's matching task, and the
   review does not ask about it, because it only offers active tasks.
+- **Two saves of one review with DIFFERENT answers** (two tabs: Keep Both in
+  one, Replace in the other) — the second is told it saved, because the
+  commit is keyed by the draft's run, not by what was sent; its answers (and
+  any other edits in it) are not applied. Pre-dates PR D (Codex review
+  2026-10-29 chose the run as the key); Codex flagged it again on PR D. Fix:
+  keep a hash of the reviewed payload with the commit and refuse a different one.
 - **Replace does not carry the typical task's last-done date** to the
   manual's task (D2). The mock's "Its last done date carries over" was cut.
 - **The welcome page's Ask headline** ("Answers from your manuals",
