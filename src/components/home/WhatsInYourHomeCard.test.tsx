@@ -94,7 +94,8 @@ describe("Pick", () => {
     await loaded()
     const card = screen.getByTestId("empty-home-card")
     expect(card).toHaveTextContent("Tap what you have. Homehub suggests the care that goes with it, and adds nothing until you say so.")
-    for (const g of ["Safety", "Heating and water", "Appliances"]) expect(within(card).getByText(g)).toBeInTheDocument()
+    // Each group is named by its title (an id with spaces once named nothing).
+    for (const g of ["Safety", "Heating and water", "Appliances"]) expect(within(card).getByRole("group", { name: g })).toBeInTheDocument()
     expect(button("Smoke alarms")).toHaveAttribute("aria-pressed", "false")
     expect(button("Carbon monoxide (CO) alarms")).toBeInTheDocument()
     // Must-be-true 2: "CO" never without "carbon monoxide" beside it — scan the card's text.

@@ -335,9 +335,11 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
       {HOME_PICK_GROUPS.map((g) => {
         const hidden = g.picks.filter((p) => p.type === "appliance" && p.more && !ticked.includes(p.id))
         const shown = g.picks.filter((p) => showMore || !hidden.includes(p))
+        // An IDREF cannot hold spaces ("Heating and water" named nothing).
+        const groupId = `empty-home-group-${g.title.toLowerCase().replace(/[^a-z]+/g, "-")}`
         return (
-          <div key={g.title} role="group" aria-labelledby={`empty-home-group-${g.title}`} className="mt-5">
-            <p id={`empty-home-group-${g.title}`} className="mb-2 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.title}</p>
+          <div key={g.title} role="group" aria-labelledby={groupId} className="mt-5">
+            <p id={groupId} className="mb-2 text-xs font-bold uppercase tracking-[0.6px]" style={{ color: SUB }}>{g.title}</p>
             <div className="flex flex-wrap gap-2">
               {shown.map((p) => {
                 const on = ticked.includes(p.id)

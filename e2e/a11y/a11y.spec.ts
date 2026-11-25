@@ -168,6 +168,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     test.use({ storageState: { cookies: [], origins: [] }, colorScheme })
 
     test(`What's in your home? in all three states (${colorScheme}) has no critical/serious a11y violations`, async ({ page }, info) => {
+      // A sign-in and three scans: more than the suite's default 60 s on a slow run.
+      test.setTimeout(150_000)
       const { email, password } = await emptyHomeAccount(`${info.project.name}-${colorScheme}`)
       // The sign-in screen settled first (gotoStable + its heading): a fill
       // racing the first paint once sent the form nowhere (landed on /).
@@ -176,7 +178,8 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.locator('input[type="email"]').fill(email)
       await page.locator('input[type="password"]').fill(password)
       await page.getByRole("button", { name: /^sign in$/i }).click()
-      await page.waitForURL(/\/home/, { timeout: 20_000 })
+      // Polls the address (the app routes / → /home client-side, slowly on WebKit).
+      await expect(page).toHaveURL(/\/home/, { timeout: 40_000 })
 
       const card = page.getByTestId("empty-home-card").filter({ visible: true }).first()
       await expect(card.getByRole("button", { name: "Not now" })).toBeEnabled({ timeout: 20_000 })
@@ -184,9 +187,15 @@ for (const colorScheme of ["light", "dark"] as const) {
       await card.getByRole("button", { name: "Dishwasher" }).click()
       await expectCleanScan(page, `empty home: pick (${colorScheme})`)
 
+      // Appliance chips only into Care: See Suggested Care then writes nothing
+      // (a fact chip writes the profile, and browser writes against the
+      // emulator can hang on WebKit — reference_emulator_e2e_wedge). The fact
+      // write itself is covered by the unit tests and the journey walk.
+      await card.getByRole("button", { name: "Smoke alarms" }).click()
+      await card.getByRole("button", { name: "Water heater" }).click()
       await card.getByRole("button", { name: "See Suggested Care" }).click()
       const care = page.getByTestId("empty-home-care").filter({ visible: true }).first()
-      await expect(care.getByRole("button", { name: "Add Test the smoke alarms" })).toBeVisible({ timeout: 20_000 })
+      await expect(care.getByRole("button", { name: "Add Clean the dishwasher filter" })).toBeVisible({ timeout: 20_000 })
       await expectCleanScan(page, `empty home: care (${colorScheme})`)
 
       await care.getByRole("button", { name: "Edit what you have" }).click()
