@@ -330,7 +330,7 @@ export function suggestionsForHome(facts: CareFacts, existing: ExistingTask[], d
 
 /** "Typical for washers" — the plural the review prints beside a usual interval. */
 const KIND_PLURAL: Record<CareKind, string> = {
-  air_purifier: "air purifiers", range_hood: "range hoods", dishwasher: "dishwashers", refrigerator: "refrigerators",
+  air_purifier: "air purifiers", range_hood: "range hoods", dishwasher: "dishwashers", refrigerator: "fridges",
   furnace: "furnaces", hvac: "heating and cooling systems", dryer: "dryers", washer: "washers",
   coffee_machine: "coffee machines", microwave: "microwaves", water_heater: "water heaters", ceiling_fan: "ceiling fans",
   food_recycler: "food recyclers", oven_range: "ovens and ranges", smoke_alarm: "smoke alarms",

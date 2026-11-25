@@ -55,6 +55,7 @@ describe("a manual that was read but never saved", () => {
     renderCare({ manualAwaitingReview: true })
     expect(addManualButton()).toBeNull()
     expect(screen.queryByText(/No upkeep yet/)).toBeNull()
+    expect(screen.queryByTestId("no-upkeep-card")).toBeNull()
   })
 
   it("holds the space, in the mock's words (HH-161 S2.5, S3.4)", () => {
@@ -81,6 +82,7 @@ describe("the states it must not disturb", () => {
     renderCare({ reading: { stage: "claude_call", pages: 42 } })
     expect(addManualButton()).toBeNull()
     expect(screen.queryByText(/No upkeep yet/)).toBeNull()
+    expect(screen.queryByTestId("no-upkeep-card")).toBeNull()
     expect(screen.getByText("Reading the manual")).toBeTruthy()
   })
 

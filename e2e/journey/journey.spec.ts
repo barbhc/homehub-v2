@@ -212,9 +212,13 @@ test.describe("journey walks", () => {
     await expect(page.getByText("Journey Kettle").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     // One tree (HH-159): the page renders its phone layout OR its desktop one,
     // so the Upkeep door is in the DOM once, not once per layout.
-    await expect(page.getByRole("button", { name: "Add the manual", exact: true, includeHidden: true })).toHaveCount(1)
-    await snap(page, "J1", "item-page", "Item page: the new item by name first; Upkeep leads “No upkeep yet — add the manual” with one Add the manual door (HH-91)",
-      page.getByRole("button", { name: /Add the manual/ }).filter(visible).first())
+    await expect(page.getByRole("button", { name: "Add the Manual", exact: true, includeHidden: true })).toHaveCount(1)
+    // Before-friends mock 2 (superseding HH-91's "No upkeep yet — add the
+    // manual"): the card says "No upkeep yet", lists the kind's typical care
+    // when the library has any, and Add the Manual is its one filled button.
+    await expect(page.getByTestId("no-upkeep-card").filter(visible).first()).toContainText("No upkeep yet")
+    await snap(page, "J1", "item-page", "Item page: the new item by name first; Upkeep says “No upkeep yet”, offers the kind's typical care (Add or Don't Add) when there is any, and one Add the Manual door",
+      page.getByRole("button", { name: "Add the Manual", exact: true }).filter(visible).first())
 
     // Home now knows the item exists but has no upkeep — the nudge names the
     // next step (add a manual) instead of celebrating an empty schedule.
@@ -408,9 +412,10 @@ test.describe("journey walks", () => {
       return id ? ((await page.locator(`#${id}`).textContent()) ?? "") : ""
     }, { timeout: 15_000 }).toMatch(/(^|, )1 reading(,|$)/)
     // …and the page body says it once, inside Upkeep, where the tasks will
-    // land — never "No upkeep yet — add the manual" under a manual being read.
+    // land — never "No upkeep yet" under a manual being read.
     await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)
-    await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
+    await expect(page.getByText("No upkeep yet")).toHaveCount(0)
+    await expect(page.getByTestId("no-upkeep-card")).toHaveCount(0)
     await snap(page, "J2", "living-item-page",
       "Landed on the item page the moment the manual was attached — the wizard did not wait for the read (no Reading screen, no review step). The Upkeep card carries the read (“Reading the manual”, the keeps-going line, one sweeping rail — no page count yet, the worker has not fetched the PDF) and the pill above the tab bar says “1 reading” on this item's own page; nothing about the read sits above “‹ Items”",
       itemHeading)

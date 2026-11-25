@@ -139,8 +139,13 @@ describe("HH-87 — a manual mid-parse is neither 'has one' nor 'has none'", () 
     // waiting states return BEFORE the no-manual state and its door can render
     // (behaviour: CareBlock.reading.test.tsx, CareBlock.awaiting.test.tsx).
     expect(src).toContain("nothing && !critical && reading")
-    expect(src.indexOf("nothing && !critical && reading")).toBeLessThan(src.indexOf("No upkeep yet — add the manual"))
-    expect(src.indexOf("nothing && !critical && manualAwaitingReview")).toBeLessThan(src.indexOf("No upkeep yet — add the manual"))
+    // Anchored on the no-manual card's testid, which appears once, in that
+    // branch — the old headline's text also lives in comments, so an index on
+    // it could pass for the wrong reason.
+    const card = src.indexOf('data-testid="no-upkeep-card"')
+    expect(card).toBeGreaterThan(0)
+    expect(src.indexOf("nothing && !critical && reading")).toBeLessThan(card)
+    expect(src.indexOf("nothing && !critical && manualAwaitingReview")).toBeLessThan(card)
   })
 
   it("the reading state is data-gated, not wizard-flag-gated", () => {
@@ -231,9 +236,15 @@ describe("round 9 redesign — the picks, pinned", () => {
     expect(src).not.toMatch(/onClick=\{goAsk\}[\s\S]{0,200}disabled/)
   })
 
-  it("HH-91: the empty item page leads with the manual, in Home's voice", () => {
+  it("before-friends mock 2 (superseding HH-91): the empty item page offers typical care, then the manual", () => {
+    // HH-91's headline was "No upkeep yet — add the manual". The owner replaced
+    // it on 2026-11-24: a known kind lists its typical care in the same card,
+    // and Add the Manual stays the card's one filled button. Behaviour:
+    // CareBlock.noManual.test.tsx.
     const src = read("../components/item-care/CareBlock.tsx")
-    expect(src).toContain("No upkeep yet — add the manual")
+    expect(src).toMatch(/>\s*No upkeep yet\s*</)
+    expect(src).toContain("Here's what most ${kindLabel} need. Add the manual for this one's exact schedule.")
+    expect(src).not.toMatch(/>\s*No upkeep yet — add the manual\s*</)
   })
 })
 

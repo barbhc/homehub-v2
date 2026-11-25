@@ -18,7 +18,8 @@ describe("SuggestedRow", () => {
     expect(screen.getByText(/Suggested/)).toBeTruthy()
     expect(screen.getByText(/Levoit Core 400S/)).toBeTruthy()
     expect(screen.getByRole("button", { name: /^Add\b(?! backstop)/ })).toBeTruthy()
-    expect(screen.getByRole("button", { name: /Not this one/ })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Don't add " + hepa.title })).toHaveTextContent("Don't Add")
+    expect(screen.queryByText(/Not this one/i)).toBeNull()
   })
 
   it("a failed Add keeps the row and says why — never a silent success", async () => {
@@ -30,11 +31,11 @@ describe("SuggestedRow", () => {
     expect(screen.getByRole("button", { name: /^Add\b(?! backstop)/ })).toBeTruthy()
   })
 
-  it("Not this one asks the parent to dismiss, nothing else", async () => {
+  it("Don't Add asks the parent to dismiss, nothing else", async () => {
     const onDismiss = vi.fn(async () => ({ error: null }))
     const onAdd = vi.fn(async () => ({ error: null }))
     render(<SuggestedRow suggestion={{ entry: hepa }} itemName="Levoit" onAdd={onAdd} onDismiss={onDismiss} last />)
-    fireEvent.click(screen.getByRole("button", { name: /Not this one/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Don't add " + hepa.title }))
     await waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1))
     expect(onAdd).not.toHaveBeenCalled()
   })

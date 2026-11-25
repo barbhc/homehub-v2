@@ -204,15 +204,16 @@ function describeAt(label: string, viewport: { width: number; height: number }) 
         w.__hhBoth = 0
         new MutationObserver(() => {
           const t = document.body.textContent ?? ""
-          if (t.includes("No upkeep yet — add the manual") && t.includes("Reading the manual")) w.__hhBoth! += 1
+          if (t.includes("No upkeep yet") && t.includes("Reading the manual")) w.__hhBoth! += 1
         }).observe(document.body, { subtree: true, childList: true, characterData: true })
       })
       await page.getByRole("dialog").getByRole("button", { name: "Scan the manual" }).click()
       await expect(allDialogs(page)).toHaveCount(0, { timeout: 30_000 })
       await expect(page.getByRole("progressbar", { name: "Reading the manual", includeHidden: true })).toHaveCount(1, { timeout: 15_000 })
 
-      await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
-      await expect(page.getByRole("button", { name: "Add the manual", exact: true })).toHaveCount(0)
+      await expect(page.getByText("No upkeep yet")).toHaveCount(0)
+      await expect(page.getByTestId("no-upkeep-card")).toHaveCount(0)
+      await expect(page.getByRole("button", { name: "Add the Manual", exact: true })).toHaveCount(0)
       // …said once (the rail above is the only one) and never beside the offer.
       await expect(page.getByText("Reading the manual", { exact: true })).toHaveCount(1)
       expect(await page.evaluate(() => (window as unknown as { __hhBoth?: number }).__hhBoth ?? 0)).toBe(0)

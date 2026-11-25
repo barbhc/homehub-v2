@@ -391,7 +391,10 @@ function ScheduleRow({ t, homeId, focused, due, completed, instanceId, onOpenTas
                  came from the manual when it didn't. */
               <div className="mt-1 flex items-center gap-2 text-[0.75rem]" style={{ color: FAINT }}>
                 <span>Added from typical care{entryByKey(libraryKeyOf(t)!)?.source ? ` · ${entryByKey(libraryKeyOf(t)!)!.source}` : ""}</span>
-                <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="hit-44 font-semibold" style={{ color: TEAL }}>Not this one</button>
+                {/* "Remove", not "Don't Add" (before-friends D7): this task is
+                    already added, so the way back takes it off again. Only an
+                    un-added suggestion says "Don't Add". */}
+                <button type="button" onClick={(e) => { e.stopPropagation(); void archiveLibraryTask() }} className="hit-44 font-semibold" style={{ color: TEAL }}>Remove</button>
               </div>
             )}
           </div>
@@ -954,8 +957,8 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   // line, the page count, the keeps-going promise and the rail — and holds the
   // space its tasks will fill. The rows are deliberately blank: the worker
   // writes its draft in one go at the end, so anything more specific here would
-  // be invented. It never says "No upkeep yet — add the manual" and never shows
-  // that button while a read runs, including for a manual added this session
+  // be invented. It never says "No upkeep yet" and never shows Add the Manual
+  // while a read runs, including for a manual added this session
   // (the page reads its manuals live now, so that manual's stage arrives here).
   if (nothing && !critical && reading) {
     return (
@@ -988,38 +991,58 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
   }
 
   if (nothing && !critical) {
-    // The no-manual case is the whole product in miniature: upkeep comes from
-    // the manual, and this is where someone finds out they haven't got one.
-    // It used to say exactly that and then offer nothing to press.
+    // Before-friends mock 2 (owner-approved 2026-11-24), superseding HH-91's
+    // "No upkeep yet — add the manual" headline. Upkeep no longer comes only
+    // from a manual: a known kind of item gets its typical care right here,
+    // each task one tap to add or decline, and Add the Manual stays the way to
+    // this one's exact schedule. Nothing is added until she taps Add.
+    //
+    // The card exists only while the item has no tasks, so the first Add moves
+    // the page on: the task lands under Maintenance and anything left over
+    // sits in the Suggested band below it (before-friends D6).
+    const offered = !hasManual ? suggestions.slice(0, 2) : []
     return (
       <Card>
-        <div className="flex flex-col items-center gap-3 px-4 py-7 text-center">
-          {/* HH-91: the no-manual state leads with the thing that unlocks the
-              page, in the same voice as Home's no-upkeep hero — two screens,
-              one lesson. The upload/link lanes themselves live in the manual
-              section below; this is the headline, not a second set of doors. */}
+        <div data-testid="no-upkeep-card" className="flex flex-col items-center gap-3 px-4 py-7 text-center">
           {!hasManual && (
             <p className="text-[0.9375rem] font-extrabold tracking-[-0.01em]" style={{ color: "var(--hh-ink)" }}>
-              No upkeep yet — add the manual
+              No upkeep yet
             </p>
           )}
           <p className="text-[0.84375rem]" style={{ color: SUB }}>
             {hasManual
               ? "No upkeep found in this manual yet."
-              : "The manual is where this item's schedule, warranty window and answers come from."}
+              : offered.length > 0
+                ? `Here's what most ${kindLabel} need. Add the manual for this one's exact schedule.`
+                : "The manual is where this item's schedule, warranty window and answers come from."}
           </p>
+          {offered.length > 0 && (
+            <div className="flex w-full flex-col gap-2">
+              {offered.map((sug) => (
+                <SuggestedRow
+                  key={sug.entry.key}
+                  variant="card"
+                  suggestion={sug}
+                  onAdd={() => addSuggestion(sug.entry.key)}
+                  onDismiss={() => dismissSuggestion(sug.entry.key)}
+                />
+              ))}
+            </div>
+          )}
           {!hasManual && onAddManual && (
+            // The card's ONE filled button (design/task-card.md, HH-109): each
+            // task's Add above is outlined, Don't Add is text.
             <button
               type="button"
               onClick={onAddManual}
-              className="rounded-xl px-4 py-2.5 text-[0.84375rem] font-bold text-white"
+              className="min-h-11 rounded-full px-6 py-2.5 text-[0.84375rem] font-bold text-white"
               style={{ background: "var(--hh-teal-fill)" }}
             >
               {/* Says what the button DOES. It opens the add-manual flow —
                   upload or paste a link — and the automatic search is a
                   labelled beta option inside that. "Find the manual" promised a
                   search this button does not run. */}
-              Add the manual
+              Add the Manual
             </button>
           )}
         </div>

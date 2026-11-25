@@ -114,7 +114,7 @@ function describeAt(label: string, viewport: { width: number; height: number }) 
       const name = `Upkeep Door ${label} ${Date.now()}`
       await addNameOnlyItem(page, name)
 
-      await page.getByRole("button", { name: "Add the manual", exact: true }).click()
+      await page.getByRole("button", { name: "Add the Manual", exact: true }).click()
       await scanAPdfFromTheOpenDialog(page)
       await page.waitForTimeout(1_500)
       expect(enqueue.count()).toBe(1)

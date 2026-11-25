@@ -215,8 +215,9 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       const back = page.getByRole("button", { name: /Items/ }).first()
       expect((await rail.boundingBox())!.y).toBeGreaterThan((await back.boundingBox())!.y)
       // S1.2 — never the empty state, never its button (not rendered).
-      await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
-      await expect(page.getByRole("button", { name: "Add the manual", exact: true })).toHaveCount(0)
+      await expect(page.getByText("No upkeep yet")).toHaveCount(0)
+      await expect(page.getByTestId("no-upkeep-card")).toHaveCount(0)
+      await expect(page.getByRole("button", { name: "Add the Manual", exact: true })).toHaveCount(0)
       // S1.3 — no floating pill; the Items tab counts the read, on this page too.
       await expect(pill(page)).toHaveCount(0)
       await expect.poll(() => tabSays(page), { timeout: 15_000 }).toMatch(/(^|, )1 reading(,|$)/)
@@ -289,7 +290,8 @@ function describeAt(label: "390px" | "desktop", viewport: { width: number; heigh
       await expect(page.getByRole("dialog")).toHaveCount(0)
       // S2.5 — Upkeep holds the space, with no button of its own.
       await expect(page.getByText("Upkeep lands here once you save the review.")).toBeVisible()
-      await expect(page.getByText("No upkeep yet — add the manual")).toHaveCount(0)
+      await expect(page.getByText("No upkeep yet")).toHaveCount(0)
+      await expect(page.getByTestId("no-upkeep-card")).toHaveCount(0)
       // S2.3 — the Items tab counts it, here too.
       await expect.poll(() => readyCount(page), { timeout: 15_000 }).toBe(baseline + 1)
       await shot(page, label, "s2-item-handoff")

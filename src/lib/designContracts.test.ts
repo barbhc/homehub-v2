@@ -472,7 +472,7 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
       // dialog per tree that display:none could not hide.
       expect(screen.getAllByRole("heading", { name: "Bosch Dishwasher", hidden: true })).toHaveLength(1)
       expect(screen.getAllByRole("button", { name: /Manuals & References/, hidden: true })).toHaveLength(1)
-      const doors = screen.getAllByRole("button", { name: "Add the manual", hidden: true })
+      const doors = screen.getAllByRole("button", { name: "Add the Manual", hidden: true })
       expect(doors).toHaveLength(1)
       expect(allDialogs()).toHaveLength(0)
 
@@ -492,10 +492,11 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
   }
 
   it("HH-141 / HH-161 · the item page's three manual states never contradict — after attaching a manual, Upkeep " +
-      "never says 'No upkeep yet — add the manual' (or offers the button) while the page says 'Reading the manual', " +
+      "never says 'No upkeep yet' (or offers Add the Manual) while the page says 'Reading the manual', " +
       "and 'Reading the manual' is said once", async () => {
     await renderItemPage(390)
-    expect(screen.getByText("No upkeep yet — add the manual")).toBeInTheDocument()
+    expect(screen.getByText("No upkeep yet")).toBeInTheDocument()
+    expect(screen.getByTestId("no-upkeep-card")).toBeInTheDocument()
 
     // The writes arrive the way Firestore delivers them: the new record reaches
     // the page's listener BEFORE the create call returns (latency
@@ -512,7 +513,7 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     const contradictions: string[] = []
     const check = () => {
       const t = document.body.textContent ?? ""
-      if (t.includes("Reading the manual") && (t.includes("No upkeep yet — add the manual"))) contradictions.push("both")
+      if (t.includes("Reading the manual") && (t.includes("No upkeep yet"))) contradictions.push("both")
     }
     const observer = new MutationObserver(check)
     observer.observe(document.body, { subtree: true, childList: true, characterData: true })
@@ -529,8 +530,9 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     expect(fake.startParse).toHaveBeenCalledTimes(1)
 
     // The dialog is closed and the listener has not heard "queued" yet.
-    expect(screen.queryByText("No upkeep yet — add the manual")).toBeNull()
-    expect(screen.queryByRole("button", { name: "Add the manual" })).toBeNull()
+    expect(screen.queryByText("No upkeep yet")).toBeNull()
+    expect(screen.queryByTestId("no-upkeep-card")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Add the Manual" })).toBeNull()
     expect(screen.getAllByText("Reading the manual")).toHaveLength(1)
 
     // Then the worker's writes: queued, then reading with its page count.
@@ -538,7 +540,8 @@ describe("The add-item flow (docs/add-item-flow.md)", () => {
     act(() => pushManuals([manual("m-new", { parse_stage: "claude_call", parse_request_id: "req-new", parse_pages: 42 })]))
     expect(screen.getAllByText("Reading the manual")).toHaveLength(1)
     expect(screen.getByText("42 pages")).toBeInTheDocument()
-    expect(screen.queryByText("No upkeep yet — add the manual")).toBeNull()
+    expect(screen.queryByText("No upkeep yet")).toBeNull()
+    expect(screen.queryByTestId("no-upkeep-card")).toBeNull()
     // The Ask card agrees (S1.4).
     expect(screen.getByText("Works best once we’ve read the manual.")).toBeInTheDocument()
 
