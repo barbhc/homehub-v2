@@ -577,7 +577,7 @@ before and after a pick beside the mock.
 
 ## PR D: Replace or Keep Both (needs the owner's yes: Functions deploy)
 
-### D0. What the server does today (Codex blocker; this replaced the first design)
+### PD0. What the server does today (Codex blocker; this replaced the first design)
 
 The first version of this plan archived the typical task from the app after the save.
 That would have lost data. `commitDraft` already compares each new manual task against
@@ -598,7 +598,7 @@ every other task on the item and silently declines to create a near-duplicate:
 
 So the choice has to reach the server and be applied in the same commit.
 
-### D1. Design
+### PD1. Design
 
 Shared matcher, `shared/care/manualReplaces.ts` (imported by the app and by Functions,
 like `shared/parse/parseCore`):
@@ -682,7 +682,7 @@ function sends a field the old schema may reject. So: deploy Functions FIRST, ve
 then hosting. Check whether `CommitManualDraftRequest` is strict about unknown keys;
 if it is, that ordering is mandatory.
 
-### D2. Tests
+### PD2. Tests
 
 - Matcher: the table above.
 - Functions (`npm run test:worker` / the functions emulator suite that already covers
