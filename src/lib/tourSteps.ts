@@ -63,15 +63,16 @@ export const tourSteps: TourStep[] = [
      * It still deliberately does NOT ask for notification permission here.
      * Nothing is scheduled yet on a brand-new account, so the prompt would be
      * abstract — and iOS only ever shows it once.
+     *
+     * The owner replaced the notifications sentence on 2026-11-24 (before-friends mock 3).
      */
     element: "[data-tour='nav-home']",
     route: "/home",
     popover: {
       title: "Welcome",
       description:
-        "Home is what your house needs from you, most important first — straight from your " +
-        "manuals, not generic advice. It appears here on its own; notifications on your phone " +
-        "are separate, and yours to allow.",
+        "Home is what your house needs from you: what's due now, what's coming up, and a place " +
+        "to ask questions.",
       side: "bottom",
       align: "start",
     },
@@ -94,8 +95,8 @@ export const tourSteps: TourStep[] = [
     popover: {
       title: "Items",
       description:
-        "Add anything you own that came with a manual. " +
-        "We'll read it for the upkeep, the cleaning and the how-tos.",
+        "Add what you own. Common things get their typical care; add a manual and " +
+        "we'll read it for the exact upkeep, the cleaning and the how-tos.",
       side: "bottom",
       align: "center",
     },
@@ -106,8 +107,8 @@ export const tourSteps: TourStep[] = [
     popover: {
       title: "Ask",
       description:
-        "Why it's beeping, which filter it takes, how to reset it after a power cut — " +
-        "ask anything about anything you own, and the answer comes straight out of that item's own manual.",
+        "Why it's beeping, which filter it takes, how to reset it after a power cut. " +
+        "Ask about anything you own; once you've added its manual, the answer comes straight out of it.",
       side: "bottom",
       align: "center",
     },

@@ -37,13 +37,16 @@ describe("tour order", () => {
     }
   })
 
-  it("still says how BOTH channels reach you — the HH-144 gap", () => {
-    // Merging the two Home steps must not quietly drop the notifications half:
-    // in-app scheduling is automatic, phone notifications are opt-in, and a
-    // person cannot tell which is which unless we say so.
+  it("says what Home holds, in the owner's 2026-11-24 words", () => {
+    // This step used to carry the HH-144 notifications sentence ("It appears
+    // here on its own; notifications on your phone are separate, and yours to
+    // allow"). The owner replaced it on 2026-11-24 (before-friends mock 3), so
+    // the absence is pinned too: a revert would bring the old sentence back.
     const home = `${tourSteps[0].popover?.description}`
-    expect(home).toMatch(/on its own|nothing to switch on/i)
-    expect(home).toMatch(/notifications on your phone|yours to allow/i)
+    expect(home).toBe(
+      "Home is what your house needs from you: what's due now, what's coming up, and a place to ask questions.",
+    )
+    expect(home).not.toMatch(/notifications on your phone|yours to allow/i)
   })
 
   it("promises no day-specific deadline", () => {

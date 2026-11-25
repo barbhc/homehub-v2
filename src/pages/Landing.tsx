@@ -104,15 +104,15 @@ function PhoneMock() {
 }
 
 const FEATURES = [
-  { Icon: PackageIcon, kicker: "Inventory", t: "Every appliance, organized", s: "Scan a label or snap a photo. Homehub identifies the model and files it by room." },
-  { Icon: ListChecksIcon, kicker: "Maintenance", t: "A schedule that builds itself", s: "From your real manuals, not generic advice — with calm reminders so nothing slips." },
+  { Icon: PackageIcon, kicker: "Inventory", t: "Every appliance, organized", s: "Model, purchase date, warranty and manual for every appliance, kept in one place." },
+  { Icon: ListChecksIcon, kicker: "Maintenance", t: "A schedule that builds itself", s: "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips." },
   { Icon: ShieldCheckIcon, kicker: "Warranties", t: "Coverage you won't forget", s: "See what's protected and what's lapsing soon, all in one tidy list." },
-  { Icon: SparklesIcon, kicker: "Ask", t: "Answers from your manuals", s: "Ask a question to any item's manual and get a clear, sourced answer in seconds." },
+  { Icon: SparklesIcon, kicker: "Ask", t: "Answers from your manuals", s: "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance." },
 ]
 
 const STEPS: [string, string, string][] = [
-  ["1", "Add your home's items", "Photo, scan, or search — a few taps each."],
-  ["2", "We build the care plan", "Tailored to your manuals and your home."],
+  ["1", "Set up in a minute", "Your zip code and type of home are all it takes to get started."],
+  ["2", "We build the care plan", "Tailored to your home, your climate and what you own."],
   ["3", "Stay ahead, calmly", "Get proactive reminders on maintenance tasks."],
 ]
 
@@ -133,7 +133,7 @@ export default function Landing() {
                 Everything your home needs, in one place.
               </h1>
               <p className="text-[1.03125rem] lg:text-[1.125rem] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
-                Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.
+                Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.
               </p>
               <GetStarted alignLeftLg />
             </div>
