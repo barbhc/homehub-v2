@@ -139,8 +139,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 /**
  * Home with nothing in it (before-friends mock 1): "What's in your home?" in
  * all three of its states — Pick (with chips ticked), Care, and the collapsed
- * row — at both viewports (the mobile project is 390px wide) and in both
- * themes. The seeded home is full, so each run makes its own empty home for a
+ * row — at 390px and desktop width, in both themes. The seeded home is full, so each run makes its own empty home for a
  * fresh account in the emulator (its own sentinel: specs share seeded state).
  */
 async function emptyHomeAccount(tag: string): Promise<{ email: string; password: string }> {
@@ -163,14 +162,24 @@ async function emptyHomeAccount(tag: string): Promise<{ email: string; password:
   return { email, password }
 }
 
-for (const colorScheme of ["light", "dark"] as const) {
-  test.describe(`empty Home, ${colorScheme}`, () => {
-    test.use({ storageState: { cookies: [], origins: [] }, colorScheme })
+const EMPTY_HOME_VIEWPORTS = [
+  { label: "390px", viewport: { width: 390, height: 844 } },
+  { label: "desktop", viewport: { width: 1440, height: 900 } },
+] as const
 
-    test(`What's in your home? in all three states (${colorScheme}) has no critical/serious a11y violations`, async ({ page }, info) => {
+for (const colorScheme of ["light", "dark"] as const) for (const { label, viewport } of EMPTY_HOME_VIEWPORTS) {
+  test.describe(`empty Home, ${colorScheme}, ${label}`, () => {
+    test.use({ storageState: { cookies: [], origins: [] }, colorScheme, viewport })
+
+    test(`What's in your home? in all three states (${colorScheme}, ${label}) has no critical/serious a11y violations`, async ({ page }, info) => {
+      // Chromium only, at both widths. On the WebKit project a FRESH account's
+      // first Firestore reads against the emulator intermittently never answer
+      // (the app sits on "Loading..."; the same hang the mobile rooms and
+      // providers scans show on main), which would make this a coin flip.
+      test.skip(info.project.name === "mobile", "WebKit + emulator first-read hang; 390px is covered in Chromium")
       // A sign-in and three scans: more than the suite's default 60 s on a slow run.
       test.setTimeout(150_000)
-      const { email, password } = await emptyHomeAccount(`${info.project.name}-${colorScheme}`)
+      const { email, password } = await emptyHomeAccount(`${info.project.name}-${colorScheme}-${label}`)
       // The sign-in screen settled first (gotoStable + its heading): a fill
       // racing the first paint once sent the form nowhere (landed on /).
       await gotoStable(page, "/signin")
