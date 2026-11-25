@@ -235,6 +235,12 @@ Key mechanics:
   family), reconciles templates by `externalKey` (**never deleting
   completion-bearing tasks**), mints first instances one cadence from the
   anchor (`last_done_on ?? today`).
+- **Replace or Keep Both** (before-friends PR D): on a fresh read's review, a
+  maintenance row that is the same job as a typical (care library) task
+  already on the item asks, inside the row, Replace or Keep Both (same-job
+  match → Replace; wording-only → Keep Both). Save sends `typicalChoices`;
+  `commitManualDraft` checks each against the item's templates and applies it
+  in the same commit. The stored-task review (Review tasks) never asks.
 - Every correction becomes `review_save` feedback; generalizable ones carry a
   cross-home `patternKey` for the weekly `graduateFeedback` aggregation.
   Feedback **never edits the prompt** — candidates route through the goldens.
@@ -247,7 +253,10 @@ row refiled as Maintenance, a cadence and a bell changed, saved, read back) ·
 `emu/notice-fit` (the hand-off card's layout) · `emu/item-page-scan-indicator`
 (the count, the bells, notifications refused) ·
 `TaskReviewSheet.*.test.tsx`, `src/lib/designContracts.test.ts` ·
-`commitManualDraft.emu`, `lastDoneAnchor.emu` (server).
+`commitManualDraft.emu`, `lastDoneAnchor.emu`, `typicalChoices.emu` (server) ·
+`emu/item-replace-typical` (Replace or Keep Both drawn at 390px light and dark
+and desktop, and what Save sends). J3's walk asserts the stored-task review
+renders no Replace question.
 
 ---
 
@@ -363,7 +372,7 @@ Key mechanics:
 |---|---|---|---|
 | J1 Onboarding | `journey.spec.ts` J1 | `emu/auth-home`, `emu/smart-add` | rules tests, `inviteActions.emu`, `membership.emu` |
 | J2 Add + manual | `journey.spec.ts` J2 | `emu/smart-add`, `emu/item-add-manual`, `emu/item-page-manual`, `emu/scan-fit`, `emu/storage`, `emu/knowledge*` | `worker.emu`, `quota.emu`, parser goldens |
-| J3 Review | `journey.spec.ts` J3 | `emu/task-review`, `emu/notice-fit` | `commitManualDraft.emu`, `lastDoneAnchor.emu` |
+| J3 Review | `journey.spec.ts` J3 | `emu/task-review`, `emu/notice-fit`, `emu/item-replace-typical` | `commitManualDraft.emu`, `lastDoneAnchor.emu`, `typicalChoices.emu` |
 | J4 Agenda | `journey.spec.ts` J4 | `emu/tasks`, `emu/home`, `emu/item-detail`, `emu/clean`, `emu/warranties`, `emu/tasks-desktop-parity` | `completeTask.emu`, `rollForward.emu`, `discussTask.emu` |
 | J5 Records | `journey.spec.ts` J5 | `monthGrid`, `storeSuggestions`, `itemName` unit specs | — (client-only write via `updateItemUnit`) |
 

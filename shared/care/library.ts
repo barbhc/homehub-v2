@@ -135,10 +135,20 @@ const ARCHETYPE_RULES: [Archetype, RegExp][] = [
   ["hurricane.prep", /\bhurricane\b/i],
 ]
 
+/** The archetype a title's own words name, by rule only — no similarity
+ *  fallback. The manual review's Replace default needs this (PR D, D11): via
+ *  the fallback, "Replace water inlet hoses" reads as the water-filter job
+ *  because its wording is close, which is a similarity match, not a same-job one. */
+export function archetypeByRule(title: string): Archetype | null {
+  for (const [a, re] of ARCHETYPE_RULES) if (re.test(title)) return a
+  return null
+}
+
 /** Which archetype a task title is, by rule first, then by similarity to the
  *  library's own titles (the one matcher, per non-negotiable #1). */
 export function archetypeOf(title: string): Archetype | null {
-  for (const [a, re] of ARCHETYPE_RULES) if (re.test(title)) return a
+  const byRule = archetypeByRule(title)
+  if (byRule) return byRule
   let best: { a: Archetype; s: number } | null = null
   for (const e of LIBRARY) {
     const s = titleSimilarity(title, e.title)

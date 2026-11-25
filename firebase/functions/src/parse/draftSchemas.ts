@@ -114,6 +114,17 @@ export const DraftTask = z.object({
   last_done_on: z.unknown().optional(), // absent on every row the reviewer didn't date
 }) satisfies z.ZodType<ParsedTask>
 
+export const MAX_TYPICAL_CHOICES = 50
+
+export const TypicalChoiceInput = z.object({
+  /** The manual task's title, exactly as sent in `tasks`. */
+  title: z.string().min(1).max(300),
+  /** The typical (care-library) task template it matched. */
+  templateId: DocId,
+  choice: z.enum(["replace", "keep_both"]),
+})
+export type TypicalChoiceInput = z.infer<typeof TypicalChoiceInput>
+
 export const CommitManualDraftRequest = z.object({
   homeId: DocId,
   manualId: DocId,
@@ -125,4 +136,11 @@ export const CommitManualDraftRequest = z.object({
    *  new result. Optional: a draft written before this shipped carries no run
    *  id, and a tab holding one must still be able to save. */
   draftRequestId: z.string().min(1).max(200).optional(),
+  /** Before-friends PR D: her answer, per manual task, to "this matches your
+   *  typical task" — Replace (the typical task is retired in the same commit)
+   *  or Keep Both (the manual task is created despite the near-duplicate
+   *  check). Optional: an old client sends none, and gets today's behaviour.
+   *  Each entry is checked against the item's templates before it is trusted
+   *  (commitManualDraft `validTypicalChoices`); this only fixes the shape. */
+  typicalChoices: z.array(TypicalChoiceInput).max(MAX_TYPICAL_CHOICES).optional(),
 })

@@ -18,6 +18,9 @@ import { useHomeProfile } from "@/modules/home"
 import { settingsPane } from "@/lib/settingsPaths"
 import { InlineError } from "@/components/layout/LoadStates"
 import { LOAD_TIMEOUT_MS, withTimeout } from "@/lib/withTimeout"
+import { getTaskTemplatesByItem } from "@/modules/care/services/taskService"
+import { libraryKeyOf } from "@/modules/care/services/careSuggestionService"
+import type { TypicalChoiceEntry, TypicalTask } from "../../../shared/care/manualReplaces"
 
 /**
  * Reads whose review we have already opened by ourselves, this session, keyed
@@ -100,7 +103,7 @@ export function ParsePickupCard({
   const navigate = useNavigate()
   const notificationsBlocked = useNotificationsBlocked()
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({})
-  const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult } | null>(null)
+  const [loaded, setLoaded] = useState<{ key: string; draft: PreviewResult; typical: TypicalTask[] } | null>(null)
   const [open, setOpen] = useState<"inline" | "sheet" | null>(null)
   const [saving, setSaving] = useState(false)
   /** Runs saved here. The save's answer can beat the listener's news of it by
@@ -169,9 +172,32 @@ export function ParsePickupCard({
   useEffect(() => {
     if (!pickupId || !draftKey || !runKey) return
     let cancelled = false
+    // PR D: the typical (care library) tasks already on this item, read beside
+    // the draft so the review opens with its Replace / Keep Both questions in
+    // place. Optional by nature: if this read fails the review still opens and
+    // still saves — it just asks nothing, and the server behaves as before.
+    const typicalRead: Promise<TypicalTask[]> = withTimeout(
+      getTaskTemplatesByItem(homeId, itemUnitId), LOAD_TIMEOUT_MS, "Reading the item's tasks timed out.",
+    ).then(
+      (res) => {
+        if (res.error || !res.data) {
+          console.warn(`[pickup] could not read the tasks of item ${itemUnitId} (home ${homeId}); the review will not offer Replace:`, res.error?.message)
+          return []
+        }
+        return res.data.flatMap((t) => {
+          const libraryKey = libraryKeyOf(t)
+          return libraryKey ? [{ templateId: t.task_template_id, title: t.title, libraryKey }] : []
+        })
+      },
+      (e: unknown) => {
+        console.warn(`[pickup] could not read the tasks of item ${itemUnitId} (home ${homeId}); the review will not offer Replace:`, e instanceof Error ? e.message : e)
+        return []
+      },
+    )
     // Timed: a read that never answers is a failed read, with its Try again.
     withTimeout(readPreviewDraft(homeId, pickupId), LOAD_TIMEOUT_MS, "Reading the draft timed out.").then(
-      (d) => {
+      async (d) => {
+        const typical = await typicalRead
         if (cancelled) return
         if (!d) {
           // The manual says a review is waiting and has no draft: usually it
@@ -180,7 +206,7 @@ export function ParsePickupCard({
           return
         }
         setUnread(null)
-        setLoaded({ key: draftKey, draft: d })
+        setLoaded({ key: draftKey, draft: d, typical })
         loadedRef.current = { manualId: pickupId, runKey }
         openIfDue(pickupId, runKey)
       },
@@ -193,9 +219,10 @@ export function ParsePickupCard({
       },
     )
     return () => { cancelled = true }
-  }, [homeId, pickupId, draftKey, runKey, openIfDue, attempt])
+  }, [homeId, itemUnitId, pickupId, draftKey, runKey, openIfDue, attempt])
 
   const draft = loaded && loaded.key === draftKey ? loaded.draft : null
+  const typicalTasks = loaded && loaded.key === draftKey ? loaded.typical : undefined
   // A failed read is always said. "No draft" is said only when someone asked
   // for this review — otherwise it is the quiet moment after a save elsewhere,
   // and the card is about to go anyway.
@@ -265,6 +292,7 @@ export function ParsePickupCard({
       onOpenChange={(o) => { if (!o) setOpen(null) }}
       itemName={itemName}
       previewData={draft}
+      typicalTasks={typicalTasks}
       focus="maintenance"
       // Round 11: in the flow it is a SECTION of the page; out of the flow it
       // is a drawer. Someone who stayed and watched is still in the flow and
@@ -272,9 +300,9 @@ export function ParsePickupCard({
       // is already somewhere on this page, and sliding it over that IS a detour.
       presentation={open === "inline" ? "inline" : "sheet"}
       saving={saving}
-      onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary) => {
+      onSave={async (tasks: PreviewTask[], chunks: PreviewChunk[], edits: ReviewEditSummary, typicalChoices: TypicalChoiceEntry[]) => {
         setSaving(true)
-        const res = await commitReviewedDraft(homeId, manualId, chunks, tasks, draft.draftRequestId)
+        const res = await commitReviewedDraft(homeId, manualId, chunks, tasks, draft.draftRequestId, typicalChoices)
         setSaving(false)
         if (!res.ok) return res.error
         // Corrections made in a fresh read's review are parser feedback too —
