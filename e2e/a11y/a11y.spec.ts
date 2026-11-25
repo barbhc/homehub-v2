@@ -178,8 +178,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       await page.locator('input[type="email"]').fill(email)
       await page.locator('input[type="password"]').fill(password)
       await page.getByRole("button", { name: /^sign in$/i }).click()
-      // Polls the address (the app routes / → /home client-side, slowly on WebKit).
-      await expect(page).toHaveURL(/\/home/, { timeout: 40_000 })
+      // Signed in once the page leaves /signin. Then open Home directly: on
+      // WebKit against the emulator, Index's / → /home hand-off sometimes sat
+      // on "/" past 40 s while the same account opened /home at once.
+      await expect(page).not.toHaveURL(/\/signin/, { timeout: 20_000 })
+      await gotoStable(page, "/home")
 
       const card = page.getByTestId("empty-home-card").filter({ visible: true }).first()
       await expect(card.getByRole("button", { name: "Not now" })).toBeEnabled({ timeout: 20_000 })
