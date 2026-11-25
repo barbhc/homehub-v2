@@ -358,14 +358,31 @@ page watches it.
   cadence and minutes ("Call a pro" when it is pro work), an outlined **Add**
   and a text **Don't Add**. Nothing is added until Add; Don't Add saves the key
   to the item's `dismissedCare`. A failed write shows its reason on the row and
-  leaves it there. For an unknown kind the line stays "The manual is where this
-  item's schedule, warranty window and answers come from." Either way **Add the
-  Manual** is the card's one filled button. The card exists only while the item
+  leaves it there. For a kind the library has no care for (a microwave, or a
+  sub-type she filed it under such as a garbage disposal) the line stays "The
+  manual is where this item's schedule, warranty window and answers come
+  from." Either way **Add the Manual** is the card's one filled button. The card exists only while the item
   has no tasks, so the first Add moves the page on: the task lands under
   Maintenance and anything left sits in the Suggested band. A manual with
   nothing found keeps "No upkeep found in this manual yet." — before-friends
   mock 2 (owner, 2026-11-24), **superseding HH-91**'s headline "No upkeep yet —
   add the manual"
+- **An item we couldn't identify asks "What is it?" in that card.** When
+  `kindOf` finds no kind and the item has no sub-type (or "other"), the line is
+  "We couldn't tell what this is from its model. Pick one to see its typical
+  care." (or "Pick what this is to see its typical care." with no brand or
+  model), then outlined 44pt chips for only the kinds with item-level care, by
+  the add screen's labels: Dishwasher, Washer, Dryer, Fridge, Furnace (Water
+  heater and Oven or range have none, so a pick would show nothing). Then "Or
+  add the manual for the exact schedule." and **Add the Manual**, still the one
+  filled button. A pick writes `item_category: major_appliance`, its
+  `sub_type` and `category`, and renames the item ONLY while its name is the
+  composed "Brand Model" placeholder, by the lookup's own rule
+  (`nameForKnownKind`, exported from `postCreateLookup.ts`). The card then
+  shows that kind's typical care. A failed write shows "Couldn't save that. Try
+  again." and the chips stay. `kindOf` reads the category's hyphens as spaces
+  so a stored "washing-machine" is a washer (names keep theirs: "Heat-Pump
+  Dryer" stays a dryer). — before-friends PR C (mock r4-m2-nokind, 2026-11-24)
 - Renaming lives **on the name**. — HH-125
 - Reading shows **one line and an indeterminate rail**, not a paragraph —
   "Reading the manual", the worker's page count once THIS read has counted it
@@ -740,6 +757,7 @@ and where they differ, the amended line governs:
 | `src/components/manuals/TaskReviewSheet.rowstates.test.tsx` | The three timing states drifting — asserts a quiet row's chip is byte-identical to a notifying row's | live |
 | `src/lib/reviewBuckets.agreement.test.ts` | The review, the task page and `sendPush` disagreeing about whether one task notifies | live |
 | `remindsByDefault(tier: PriorityTierName)` | **The compiler.** Passing a bucket where a tier belongs fails `tsc -b`; a runtime test could not catch it, because today the bucket for a scheduled row IS the tier | live |
+| `src/components/item-care/CareBlock.whatIsIt.test.tsx` + `e2e/emu/item-what-is-it.spec.ts` + `shared/care/library.test.ts` (kindOf) | "What is it?" offering a kind with no item-level care, showing for an item whose kind is known, renaming a name she typed, a failed pick claiming anything or losing the chips, a pick that does not show the kind's care or does not survive a reload; a stored sub-type id not resolving to its kind, or a hyphenated name changing kind (before-friends PR C) | live |
 | `src/components/item-care/CareBlock.awaiting.test.tsx` | The page offering to add a manual it has already read; the ONE "waiting for review" definition, rescans included | live |
 | `src/components/item-care/CareBlock.reading.test.tsx` | Upkeep not carrying the read (line, worker's page count, one sweeping rail), offering the manual while one is read, a guessed page count; after Save with no maintenance, the "Nothing here goes into Tasks" heading, the cadences, and no bell on item cleaning (HH-161 S1, S3c) | live |
 | `src/hooks/useItemManuals.test.ts` | The page's manuals not following the worker's writes (created → queued → reading → done → saved), or a run the page never saw running counted as watched (HH-161) | live |

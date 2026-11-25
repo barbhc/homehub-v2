@@ -64,9 +64,19 @@ const KIND_RULES: [CareKind, RegExp][] = [
   ["smoke_alarm", /\b(smoke|co\b|carbon monoxide)\b.*\b(alarm|detector)\b/i],
 ]
 
-/** What this item IS, or null when the library has nothing for it. */
+/**
+ * What this item IS, or null when the library has nothing for it.
+ *
+ * The CATEGORY's hyphens read as spaces (before-friends PR C): "What is it?" on
+ * the item page and on the add screen stores a sub-type id there, and
+ * "washing-machine" missed the washer rule's "washing machine", so an item the
+ * owner had named herself stayed unknown after she said what it was. Only the
+ * category: across the whole text, "Heat-Pump Dryer" would start matching the
+ * heat-pump rule and become HVAC (library.test.ts pins that it does not).
+ */
 export function kindOf(item: KindInput): CareKind | null {
-  const text = [item.display_name, item.category, item.brand, item.model].filter(Boolean).join(" ")
+  const category = item.category ? item.category.replace(/-/g, " ") : null
+  const text = [item.display_name, category, item.brand, item.model].filter(Boolean).join(" ")
   for (const [kind, re] of KIND_RULES) if (re.test(text)) return kind
   return null
 }

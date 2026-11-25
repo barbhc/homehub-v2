@@ -217,3 +217,35 @@ for (const colorScheme of ["light", "dark"] as const) for (const { label, viewpo
     })
   })
 }
+
+/**
+ * The item page's "What is it?" card (before-friends PR C, mock r4-m2-nokind),
+ * in both themes at both projects' widths. Read-only: the item is written with
+ * the admin SDK as the appliance lane leaves an unidentified one, and the scan
+ * runs before any pick (the pick itself is e2e/emu/item-what-is-it.spec.ts).
+ */
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(`item page, What is it? (${colorScheme})`, () => {
+    test.use({ colorScheme })
+
+    test(`the unidentified item's card (${colorScheme}) has no critical/serious a11y violations`, async ({ page }, info) => {
+      const app = getApps()[0] ?? initializeApp({ projectId: EMULATOR_PROJECT_ID })
+      const db = getFirestore(app)
+      const itemId = `a11y-what-is-it-${info.project.name}-${colorScheme}`
+      const now = Timestamp.now()
+      await db.doc(`homes/e2e-home/items/${itemId}`).set({
+        roomId: null, displayName: "Bosch SHPM88Z75N", category: "other", itemCategory: null, subType: null,
+        brand: "Bosch", model: "SHPM88Z75N", status: "active", purchaseDate: null, warrantyDurationMonths: null,
+        categoryFields: {}, tags: [], recallStatus: "none_found", recallCheckedAt: now, photoPath: null,
+        createdAt: now, updatedAt: now, deletedAt: null,
+      })
+      try {
+        await gotoStable(page, `/items/${itemId}`)
+        await expect(page.getByRole("group", { name: "What is it?" }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 })
+        await expectCleanScan(page, `item page: What is it? (${colorScheme})`)
+      } finally {
+        await db.doc(`homes/e2e-home/items/${itemId}`).delete()
+      }
+    })
+  })
+}

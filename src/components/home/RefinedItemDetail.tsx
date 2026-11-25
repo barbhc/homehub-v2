@@ -412,13 +412,15 @@ export function RefinedItemDetail({
         {/* HH-91 / round-9 redesign: Ask sits BELOW the upkeep it answers
             about. Its own subtitle admits the dependency; before a manual
             exists it says so plainly instead of promising, and drops the teal
-            invitation styling. */}
+            invitation styling. It is NOT faded: at 0.8 opacity its teal title
+            measured 4.12:1 (light) and 4.49:1 (dark) on the surface, under
+            the 4.5:1 floor (a11y scan of the no-manual card, before-friends PR C). */}
         <Link
           to={`/chat?item=${item.item_unit_id}`}
           className="mt-4 flex items-center gap-3 rounded-2xl border px-3.5 py-3"
           style={manualState.hasManual
             ? { background: "var(--hh-teal-wash)", borderColor: "color-mix(in srgb, var(--hh-teal) 22%, transparent)" }
-            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)", opacity: manualState.awaitingReview ? 1 : 0.8 }}
+            : { background: "var(--hh-surface)", borderColor: "var(--hh-line)" }}
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--hh-surface)" }}>
             <MessageCircleQuestionIcon className="size-[18px]" style={{ color: TEAL }} />

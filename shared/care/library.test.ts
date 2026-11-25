@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { kindOf, archetypeOf, suggestionsForItem, suggestionsForHome, entriesForKind, LIBRARY, typicalFilterCadence as typical } from "./library"
 
 /**
@@ -41,6 +43,62 @@ describe("kindOf — what an item is, from the fields it already carries", () =>
   it("specific beats generic — a range HOOD is not an oven range", () => {
     expect(kindOf({ display_name: "Range Hood", category: "Fixture" })).toBe("range_hood")
     expect(kindOf({ display_name: "Range", category: "Major appliance", brand: "GE" })).toBe("oven_range")
+  })
+})
+
+describe("kindOf — a sub-type id in the category reads as its words (before-friends PR C)", () => {
+  // "What is it?" (the add screen's chips, and the item page's no-manual card)
+  // stores the chip's sub-type id as the category. The item's own name says
+  // nothing, so the category alone has to carry the kind.
+  const picked = (category: string) => ({ display_name: "Bosch SHPM88Z75N", category, brand: "Bosch", model: "SHPM88Z75N" })
+
+  it("every KIND_CHIPS sub-type maps to its kind", async () => {
+    const { KIND_CHIPS } = await import("../../src/components/smart-add/identifyData")
+    const expected: Record<string, string> = {
+      "washing-machine": "washer", dryer: "dryer", dishwasher: "dishwasher", refrigerator: "refrigerator",
+      "water-heater": "water_heater", "hvac-furnace": "furnace", "oven-range": "oven_range",
+    }
+    expect(KIND_CHIPS.map((k) => k.subType).sort()).toEqual(Object.keys(expected).sort())
+    for (const k of KIND_CHIPS) expect(kindOf(picked(k.subType)), k.subType).toBe(expected[k.subType])
+  })
+
+  // Every seeded item (scripts/seed-emulator.ts) plus hyphenated names and
+  // models, each with the kind it had BEFORE the change. Only the category's
+  // hyphens are read as spaces: across the whole text, "Heat-Pump Dryer"
+  // would match the heat-pump rule and turn into HVAC.
+  const unchanged: [string, { display_name: string; category: string | null; brand: string | null; model: string | null }, string | null][] = [
+    ["seed: dishwasher", { display_name: "Bosch 800 Series Dishwasher", category: "dishwasher", brand: "Bosch", model: "SHPM88Z75N" }, "dishwasher"],
+    ["seed: fridge", { display_name: "LG French Door Refrigerator", category: "refrigerator", brand: "LG", model: "LRFVS3006S" }, "refrigerator"],
+    ["seed: furnace", { display_name: "Carrier Infinity Furnace", category: "furnace", brand: "Carrier", model: "59MN7" }, "furnace"],
+    ["seed: washer", { display_name: "Whirlpool Front-Load Washer", category: "washer", brand: "Whirlpool", model: "WFW9620HC" }, "washer"],
+    ["seed: water heater", { display_name: "Rheem Performance Water Heater", category: "water_heater", brand: "Rheem", model: "XE50T10" }, "water_heater"],
+    ["seed: range", { display_name: "GE Profile Gas Range", category: "range", brand: "GE", model: "PGB960" }, "oven_range"],
+    ["seed: microwave", { display_name: "Sharp Microwave Drawer", category: "microwave", brand: "Sharp", model: "SMD2470ASY24" }, "microwave"],
+    ["hyphenated name: heat-pump dryer", { display_name: "Heat-Pump Dryer", category: null, brand: "Miele", model: "TWB120WP" }, "dryer"],
+    ["hyphenated name + dryer category", { display_name: "Miele T1 Heat-Pump Dryer", category: "dryer", brand: "Miele", model: "TWI180WP" }, "dryer"],
+    ["hyphenated name: heat-pump water heater", { display_name: "Heat-Pump Water Heater", category: null, brand: "Rheem", model: "PROPH50" }, "water_heater"],
+    ["hyphenated model, no kind", { display_name: "LG WM-4000HWA", category: null, brand: "LG", model: "WM-4000HWA" }, null],
+    ["hyphenated name: Wi-Fi range", { display_name: "Wi-Fi Range", category: null, brand: "GE", model: "JB-735" }, "oven_range"],
+    ["hyphenated name: ceiling-fan", { display_name: "Ceiling-fan", category: null, brand: "Hunter", model: null }, "ceiling_fan"],
+    ["hyphenated name: carbon-monoxide alarm", { display_name: "Carbon-monoxide alarm", category: null, brand: "Kidde", model: "KN-COB-B" }, null],
+    ["mini-split, air-conditioner category", { display_name: "Mini-split", category: "air-conditioner", brand: "Mitsubishi", model: "MSZ-GL12NA" }, "hvac"],
+    ["range-hood category", { display_name: "Range-hood", category: "range-hood", brand: "Zephyr", model: null }, "range_hood"],
+    ["air-fryer category", { display_name: "Air-fryer", category: "air-fryer", brand: "Ninja", model: "AF-101" }, null],
+    ["garbage-disposal category", { display_name: "Garbage disposal", category: "garbage-disposal", brand: "InSinkErator", model: "Evolution" }, null],
+    ["wine-fridge category", { display_name: "Wine fridge", category: "wine-fridge", brand: null, model: null }, "refrigerator"],
+    ["tankless-water-heater category", { display_name: "Tankless", category: "tankless-water-heater", brand: "Rinnai", model: "RU199iN" }, "water_heater"],
+    ["air-purifier category", { display_name: "Levoit Core Air Purifiers", category: "air-purifier", brand: "Levoit", model: "Core 300" }, "air_purifier"],
+  ]
+  it.each(unchanged)("%s keeps its kind", (_label, item, kind) => {
+    expect(kindOf(item)).toBe(kind)
+  })
+
+  it("the table covers every item the emulator seed creates", async () => {
+    const seed = readFileSync(resolve(__dirname, "../../scripts/seed-emulator.ts"), "utf8")
+    const seeded = [...seed.matchAll(/displayName: "([^"]+)"/g)].map((m) => m[1])
+    expect(seeded.length).toBeGreaterThan(0)
+    const covered = unchanged.filter(([label]) => label.startsWith("seed:")).map(([, it]) => it.display_name)
+    expect(covered.sort()).toEqual(seeded.sort())
   })
 })
 
