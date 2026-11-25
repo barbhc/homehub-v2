@@ -6,7 +6,8 @@ import { test, expect } from "../fixtures"
  *
  * Three surfaces, one walk each, against the seeded emulator home:
  *  - the item page's Suggested band: Add turns a suggestion into a task that
- *    carries its provenance, and "Not this one" on that task takes it back;
+ *    carries its provenance, and "Remove" on that task takes it back
+ *    (before-friends D7: only an un-added suggestion says "Don't Add");
  *  - Your home (/your-home): answers save as facts and unlock whole-home
  *    care, and a failed-nothing path is never shown as "nothing to set up";
  *  - the Tasks page's standing Suggested group sits LAST and never changes
@@ -62,7 +63,7 @@ test.describe("emulator e2e — care library", () => {
     await expect(page.getByRole("button", { name: /^Add Clean the dishwasher filter/ })).toHaveCount(0)
 
     // The way back is one tap, on the row itself.
-    await row.getByRole("button", { name: "Not this one" }).click()
+    await row.getByRole("button", { name: "Remove", exact: true }).click()
     await expect(page.getByTestId("care-row").filter({ hasText: "Clean the dishwasher filter" })).toHaveCount(0, { timeout: 20_000 })
   })
 

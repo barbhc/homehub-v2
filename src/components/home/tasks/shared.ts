@@ -570,7 +570,7 @@ export function phraseUnderGroup(phrase: string | null | undefined, groupLabel?:
 // ── Grouping ──────────────────────────────────────────────────────────────────
 
 export type Lens = "urgency" | "room" | "item"
-export type TaskGroup = { key: string; label: string; tone: string; items: WeekAgendaItem[]; mins: number }
+export type TaskGroup = { key: string; label: string; tone: string; items: WeekAgendaItem[] }
 
 /** Real room (from the item→room join), falling back to "Home" for home-scoped work. */
 export function roomOf(t: WeekAgendaItem): string {
@@ -604,9 +604,6 @@ function sortRows(rows: WeekAgendaItem[]): WeekAgendaItem[] {
       diffDays(today, a.dueDate) - diffDays(today, b.dueDate)
   )
 }
-function sumMins(rows: WeekAgendaItem[]): number {
-  return rows.reduce((s, t) => s + (t.estimatedMinutes ?? 0), 0)
-}
 
 export function groupTasks(tasks: WeekAgendaItem[], lens: Lens): TaskGroup[] {
   if (lens === "urgency") {
@@ -633,7 +630,7 @@ export function groupTasks(tasks: WeekAgendaItem[], lens: Lens): TaskGroup[] {
     const ordered = [buckets[0], buckets[2], buckets[1]]
     return ordered
       .filter((g) => g.items.length > 0)
-      .map((g) => ({ ...g, items: sortRows(g.items), mins: sumMins(g.items) }))
+      .map((g) => ({ ...g, items: sortRows(g.items) }))
   }
 
   const keyOf = lens === "room" ? roomOf : itemOf
@@ -645,7 +642,7 @@ export function groupTasks(tasks: WeekAgendaItem[], lens: Lens): TaskGroup[] {
     map.set(k, list)
   }
   const ranked = [...map.entries()].map(([label, items]) => ({
-    group: { key: label, label, tone: items.some((t) => t.isOverdue) ? CLAY : TEAL, items: sortRows(items), mins: sumMins(items) } as TaskGroup,
+    group: { key: label, label, tone: items.some((t) => t.isOverdue) ? CLAY : TEAL, items: sortRows(items) } as TaskGroup,
     overdue: items.some((t) => t.isOverdue),
   }))
   ranked.sort((a, b) => Number(b.overdue) - Number(a.overdue) || b.group.items.length - a.group.items.length)

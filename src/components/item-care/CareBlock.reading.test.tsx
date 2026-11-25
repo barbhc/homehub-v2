@@ -61,10 +61,11 @@ describe("S1 — while the manual is read, Upkeep carries the read", () => {
     expect(rails[0].firstElementChild).toHaveClass("hh-scanrail")
   })
 
-  it("S1.2 — never 'No upkeep yet — add the manual', and no Add the manual button (not rendered)", () => {
+  it("S1.2 — never 'No upkeep yet', and no Add the Manual button (not rendered)", () => {
     renderCare({ reading: { stage: "queued", pages: null } })
     expect(screen.queryByText(/No upkeep yet/)).toBeNull()
-    expect(screen.queryByRole("button", { name: /Add the manual/ })).toBeNull()
+    expect(screen.queryByTestId("no-upkeep-card")).toBeNull()
+    expect(screen.queryByRole("button", { name: /Add the manual/i })).toBeNull()
   })
 
   it("S1.5 — the count is the worker's; before it has counted, there is none, never a guess or 'page N of M'", () => {

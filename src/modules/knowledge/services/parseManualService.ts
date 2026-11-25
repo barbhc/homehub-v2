@@ -91,8 +91,8 @@ export const ACTIVE_PARSE_STAGES: ParseStage[] = [
   // `awaiting_capacity` counts as active HERE and not in enqueueParse's
   // server-side ACTIVE_STAGES, and the asymmetry is deliberate. To the user it
   // is pending — we said it was queued and that it would start on its own, so
-  // the item page must not fall back to "No upkeep yet — add the manual" for a
-  // manual we are holding. To the SERVER it is idle, so it must not consume the
+  // the item page must not fall back to "No upkeep yet" and Add the Manual for
+  // a manual we are holding. To the SERVER it is idle, so it must not consume the
   // in-flight slot and block them starting a different parse by hand.
   "awaiting_capacity",
   "queued", "started", "pdf_fetched", "claude_call", "claude_responded", "committing",

@@ -33,9 +33,12 @@ it fills the gaps and says where it came from.
 
 1. **Item page → "Suggested" band** (after Cleaning). One row per suggestion:
    detail full width, actions beneath, a source line for the kind. Add creates
-   a task with `externalKey: "library:<key>"`; Not this one writes the key to
+   a task with `externalKey: "library:<key>"`; Don't Add writes the key to
    the item's `dismissedCare`. Library-added rows carry a provenance line with
-   a one-tap "Not this one" (archives the task).
+   a one-tap "Remove" (archives the task). An item with no tasks and no manual
+   shows up to two of these inside its "No upkeep yet" card instead (the
+   `card` variant of `SuggestedRow`: outlined Add, text Don't Add), with Add
+   the Manual as the card's one filled button (before-friends mock 2).
 2. **Tasks page → standing "Suggested" group**, always last, never counted in
    the groups above it. Every existing task stays exactly where it was.
 3. **Settings → Your home (`/home-setup`)**: categories from the InterNACHI

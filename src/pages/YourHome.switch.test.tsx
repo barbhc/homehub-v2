@@ -157,10 +157,10 @@ describe("Your home — a write lands on the home it was started for", () => {
     setDocs({ care_facts: { has_smoke_alarms: true }, dismissed_care: [] }, { care_facts: { has_smoke_alarms: true }, dismissed_care: [] })
     const landA = holdNext(svc.dismissLibrarySuggestion)
     const { rerender } = render(page())
-    fireEvent.click(await screen.findByRole("button", { name: "Not this one — Test smoke and CO alarms" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Don't add Test smoke and CO alarms" }))
 
     switchTo("home-b", rerender)
-    expect(await screen.findByRole("button", { name: "Not this one — Test smoke and CO alarms" })).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Don't add Test smoke and CO alarms" })).toBeInTheDocument()
     await act(async () => { landA() })
 
     expect(svc.dismissLibrarySuggestion).toHaveBeenCalledWith("home-a", null, "home.alarm_test")

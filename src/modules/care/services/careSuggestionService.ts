@@ -88,7 +88,7 @@ export async function addLibraryTask(
   return { data: { ...created.data, external_key: `${LIBRARY_KEY_PREFIX}${entry.key}` }, error: null }
 }
 
-/** "Not this one": remember the key where the suggestion lived. */
+/** "Don't Add": remember the key where the suggestion lived. */
 export async function dismissLibrarySuggestion(homeId: string, itemUnitId: string | null, key: string): Promise<ServiceResult<true>> {
   try {
     const ref = itemUnitId ? doc(db, `homes/${homeId}/items/${itemUnitId}`) : doc(db, `homes/${homeId}`)

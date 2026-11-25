@@ -299,14 +299,14 @@ function Calendar({
 }
 
 // ── Group header ──────────────────────────────────────────────────────────────
-function GroupHeader({ label, tone, count, mins }: { label: string; tone: string; count: number; mins: number }) {
+// No minutes total beside the count: owner's rule (2026-09-08) is that a
+// list-wide total like "230 min" never changes the next action.
+function GroupHeader({ label, tone, count }: { label: string; tone: string; count: number }) {
   return (
     <div className="mb-2 flex items-center gap-1.5 pl-0.5">
       <span className="size-2 rounded-full" style={{ background: tone }} />
       <span className="text-[0.9375rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>{label}</span>
       <span className="text-[0.84375rem] font-bold" style={{ color: tone === CLAY ? CLAY : FAINT }}>{count}</span>
-      <div className="flex-1" />
-      {mins > 0 && <span className="text-[0.78125rem] font-semibold" style={{ color: FAINT }}>{mins} min</span>}
     </div>
   )
 }
@@ -606,7 +606,7 @@ export function RefinedWeek({ homeId, idBase, inCleaningSession = false }: {
             )}
             {groups.map((g) => (
               <div key={g.key} className="mb-4">
-                <GroupHeader label={g.label} tone={g.tone} count={g.items.length} mins={g.mins} />
+                <GroupHeader label={g.label} tone={g.tone} count={g.items.length} />
                 <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE }}>
                   {g.items.map((t) => renderRow(t, g.label))}
                 </div>

@@ -30,8 +30,8 @@ describe("toUiStage — worker stage → UI progress mapping (fix B)", () => {
 describe("awaiting_capacity reads as pending (HH-124)", () => {
   it("counts as active, so a held manual is not shown as missing", () => {
     // The user was told the manual was queued and would start on its own. If
-    // this were inactive, the item page would fall back to "No upkeep yet —
-    // add the manual" for a manual we are holding, which contradicts the
+    // this were inactive, the item page would fall back to "No upkeep yet" and
+    // Add the Manual for a manual we are holding, which contradicts the
     // promise the capacity notice just made.
     expect(ACTIVE_PARSE_STAGES).toContain("awaiting_capacity")
   })

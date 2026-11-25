@@ -423,8 +423,6 @@ export function DesktopTasks({ homeId, idBase, inCleaningSession = false }: {
                     <span className="size-[9px] rounded-full" style={{ background: g.tone }} />
                     <span className="text-[1rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{g.label}</span>
                     <span className="text-[0.84375rem] font-bold" style={{ color: g.tone === CLAY ? CLAY : FAINT }}>{g.items.length}</span>
-                    <div className="flex-1" />
-                    {g.mins > 0 && <span className="text-[0.8125rem] font-semibold" style={{ color: FAINT }}>{g.mins} min</span>}
                   </div>
                   <div className="overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: SURFACE, border: `1px solid ${LINE}` }}>
                     {g.items.map((t, i) => (

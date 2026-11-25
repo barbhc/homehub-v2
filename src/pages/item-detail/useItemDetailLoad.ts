@@ -60,8 +60,8 @@ const MANUALS_IN: ManualsLoad = { status: "ready", count: 0 }
  *
  * HH-161: the manuals are no longer one of these reads. They come from a live
  * listener (useItemManuals), and the page is not ready until that listener has
- * answered too — a page drawn before it would say "No upkeep yet — add the
- * manual" for a moment over a manual being read. A listener that is slow is
+ * answered too — a page drawn before it would say "No upkeep yet" and offer
+ * Add the Manual for a moment over a manual being read. A listener that is slow is
  * slow here too; one that failed does not hold the page (the page says so).
  */
 export function useItemDetailLoad(homeId: string | undefined, itemId: string | undefined, manuals: ManualsLoad = MANUALS_IN) {

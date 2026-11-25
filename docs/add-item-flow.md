@@ -335,6 +335,21 @@ page watches it.
 
 - **The name is the first thing.** The photo is a 44px control beside it, never
   a block above it. — HH-136
+- **No manual, no tasks: typical care in the "No upkeep yet" card.** The card
+  says "No upkeep yet". For a kind the care library knows, the line is "Here's
+  what most {kind} need. Add the manual for this one's exact schedule." and up
+  to two of that kind's typical tasks follow, each a bordered row with its
+  cadence and minutes ("Call a pro" when it is pro work), an outlined **Add**
+  and a text **Don't Add**. Nothing is added until Add; Don't Add saves the key
+  to the item's `dismissedCare`. A failed write shows its reason on the row and
+  leaves it there. For an unknown kind the line stays "The manual is where this
+  item's schedule, warranty window and answers come from." Either way **Add the
+  Manual** is the card's one filled button. The card exists only while the item
+  has no tasks, so the first Add moves the page on: the task lands under
+  Maintenance and anything left sits in the Suggested band. A manual with
+  nothing found keeps "No upkeep found in this manual yet." — before-friends
+  mock 2 (owner, 2026-11-24), **superseding HH-91**'s headline "No upkeep yet —
+  add the manual"
 - Renaming lives **on the name**. — HH-125
 - Reading shows **one line and an indeterminate rail**, not a paragraph —
   "Reading the manual", the worker's page count once THIS read has counted it
@@ -365,8 +380,8 @@ page watches it.
   trees and the pill. No copy is patched by hand, so a manual added this
   session shows its read like any other. — HH-141; HH-161, mock 2026-09-30
   - **Being read:** Upkeep carries the read (above) and holds the space its
-    tasks will fill. It **never** says "No upkeep yet — add the manual" or
-    shows that button while a read runs — including for a manual added this
+    tasks will fill. It **never** says "No upkeep yet" or shows Add the
+    Manual while a read runs — including for a manual added this
     session, from the moment the dialog hands it over. The Ask card says
     "Works best once we've read the manual." — HH-161 (S1)
   - **Read, nothing saved yet:** stage "done" with a preview draft waiting —
@@ -632,6 +647,12 @@ Spec: `design/demo-feedback-2026-11-18.md` (D4, "As built").
   from an offer is reported against what the MANUAL said.
 
 Pinned by `TaskReviewSheet.level.test.tsx`, one test per must-be-true line.
+
+### Superseded by before-friends mock 2 (owner, 2026-11-24)
+
+| Rule | Why it no longer applies |
+|---|---|
+| HH-91: the empty item page leads *"No upkeep yet — add the manual"* | Upkeep no longer comes only from a manual. A known kind gets its typical care in the same card, so the headline is "No upkeep yet" and Add the Manual is the way to this one's exact schedule. |
 
 ### Superseded by D4
 
