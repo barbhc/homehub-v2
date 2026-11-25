@@ -169,7 +169,10 @@ for (const colorScheme of ["light", "dark"] as const) {
 
     test(`What's in your home? in all three states (${colorScheme}) has no critical/serious a11y violations`, async ({ page }, info) => {
       const { email, password } = await emptyHomeAccount(`${info.project.name}-${colorScheme}`)
-      await page.goto("/signin")
+      // The sign-in screen settled first (gotoStable + its heading): a fill
+      // racing the first paint once sent the form nowhere (landed on /).
+      await gotoStable(page, "/signin")
+      await page.getByText(/welcome back/i).filter({ visible: true }).first().waitFor({ state: "visible", timeout: 20_000 })
       await page.locator('input[type="email"]').fill(email)
       await page.locator('input[type="password"]').fill(password)
       await page.getByRole("button", { name: /^sign in$/i }).click()
