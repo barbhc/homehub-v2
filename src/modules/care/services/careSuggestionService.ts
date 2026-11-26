@@ -121,13 +121,16 @@ export async function addCustomHomeTask(
   intervalDays?: number | null,
   /** Roughly how long it takes, when she said (Tasks → Add your own task). */
   estimatedMinutes?: number | null,
+  /** The item it is for, when she came from that item's page ("Add Your Own
+   *  Task", seventeen fixes mock m4): the task then lives on that item. */
+  itemUnitId?: string | null,
 ): Promise<ServiceResult<TaskTemplate>> {
   const clean = title.trim()
   if (!clean) return { data: null, error: { message: "Give the task a name first" } }
   const created = await createTaskTemplate({
     home_id: homeId,
-    scope_type: "home",
-    item_unit_id: null,
+    scope_type: itemUnitId ? "item_unit" : "home",
+    item_unit_id: itemUnitId ?? null,
     title: clean.slice(0, 120),
     care_type: "maintenance",
     priority_tier: "recommended",

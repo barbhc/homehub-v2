@@ -12,9 +12,15 @@
  * on-device draft (firstMinuteDraft.ts). "Add N tasks" or "Not now" asks for an
  * account if there isn't one ("Keep your list"), then the home, its profile
  * and the picked tasks are saved together (firstMinuteCommit.ts).
+ *
+ * The same three screens also run for a signed-in person's EXISTING home, from
+ * Home's "Add your zip" row (ZipForHome, below; seventeen fixes mock m5): the
+ * home type is skipped when the home has one, the list offers only what the
+ * zip brings that the home doesn't have, and the answers go onto that home.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Navigate, useNavigate } from "react-router-dom"
+import { useSWRConfig } from "swr"
 import { CheckIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,16 +34,16 @@ import {
   EMPTY_DRAFT, clearDraft, clearSaveAsked, markSaveAsked, saveDraft, startingDraft,
   type Answer, type DraftList, type DraftProfile, type FirstMinuteDraft, type Pending, type Step, type WhyNot,
 } from "@/modules/home/services/firstMinuteDraft"
-import { addToExistingHome, commitFirstMinute } from "@/modules/home/services/firstMinuteCommit"
+import { addToExistingHome, commitFirstMinute, readHomeForZip, saveZipToHome, type HomeForZip } from "@/modules/home/services/firstMinuteCommit"
 import { OnboardingSteps, OptionRow } from "@/modules/home/components/onboardingParts"
 import { CLIMATE_OPTIONS, HOME_TYPE_OPTIONS, buildingHandlesByDefault, freezeRiskFor } from "@/modules/home/components/onboardingOptions"
 import { FactRow, HAZARD_TITLE } from "@/modules/home/components/areaFacts"
 import { firstDueDates, firstList, type FirstListRow, type LeftOffReason } from "../../shared/care/firstList"
 import { coldestNightF, type ZipArea } from "../../shared/area/zipArea"
-import type { CareFacts } from "../../shared/care/library"
+import type { CareFacts, ExistingTask } from "../../shared/care/library"
 import { localToday } from "../../shared/dates/calendar"
 import { track } from "@/lib/analytics"
-import { listInput, type Corrections } from "@/lib/firstListInput"
+import { listInput, NO_CORRECTIONS, type Corrections } from "@/lib/firstListInput"
 import { cn } from "@/lib/utils"
 
 const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -193,6 +199,165 @@ export default function FirstMinute() {
   )
 }
 
+// ── an existing home's zip ────────────────────────────────────────────────────
+
+/** The draft fields over a profile that was read: what the steps see. */
+function withPatch(p: HomeProfile, patch: DraftProfile): HomeProfile {
+  return {
+    ...p,
+    zip: patch.zip ?? p.zip,
+    climate: patch.climate ?? p.climate,
+    freeze_risk: patch.freeze_risk !== undefined ? patch.freeze_risk : p.freeze_risk,
+    climate_source: patch.climate_source ?? p.climate_source,
+    area: patch.area !== undefined ? patch.area : p.area,
+    home_type: p.home_type ?? patch.home_type ?? null,
+    care_facts: { ...p.care_facts, ...(patch.care_facts ?? {}) },
+    dismissed_care: patch.dismissed_care ?? p.dismissed_care,
+    completed_at: p.completed_at ?? patch.completed_at ?? null,
+  }
+}
+
+/**
+ * Every key this month's list would offer the home WITHOUT a zip — so the
+ * zip's list can leave them out. The list holds at most three, so it is read
+ * again with each round left out until it has nothing more to give.
+ */
+function keysWithoutZip(p: HomeProfile, existing: ExistingTask[]): string[] {
+  const out: string[] = []
+  const input = listInput(p, p.home_type, NO_CORRECTIONS, {})
+  for (let i = 0; i < 20; i++) {
+    const rows = firstList({ ...input, existing, dismissed: [...p.dismissed_care, ...out], fillers: false }).rows
+    if (rows.length === 0) break
+    out.push(...rows.map((r) => r.entry.key))
+  }
+  return out
+}
+
+type ZipStage = "zip" | "area" | "list"
+
+/**
+ * Home's "Add your zip" (seventeen fixes, mock m5; owner-approved 2026-11-25):
+ * the first minute's zip, area and list screens for a signed-in person's
+ * EXISTING home. It updates that home's profile and adds only the tasks she
+ * picks; it never creates a home and never asks for an account.
+ *
+ *   1. Where's home? — Not now goes back to Home with nothing written.
+ *   2. What your area means — with "Not true here". The home-type question is
+ *      skipped when the home already has a type, and the step itself when
+ *      there is then nothing to show.
+ *   3. Worth doing this month — only tasks the zip brings that the home
+ *      doesn't already have (its tasks, and what it turned down, are left
+ *      out). Nothing is added until Add; Not now still keeps the zip.
+ *   4. Back to Home, where the row is gone (the zip is on the profile).
+ *
+ * Every failed read and write is said on screen.
+ */
+export function ZipForHome() {
+  const navigate = useNavigate()
+  const { home } = useCurrentHome()
+  const homeId = home?.home_id ?? null
+  const { mutate } = useSWRConfig()
+  const [read, setRead] = useState<{ homeId: string; data: HomeForZip } | { homeId: string; error: string } | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const [stage, setStage] = useState<ZipStage>("zip")
+  const [patch, setPatch] = useState<DraftProfile>({})
+  const [list, setList] = useState<DraftList | null>(null)
+  const [sheet, setSheet] = useState<KeepSheetView | null>(null)
+  const pendingRef = useRef<Pending | null>(null)
+  const addedRef = useRef<string[]>([])
+  const running = useRef(false)
+
+  useEffect(() => {
+    if (!homeId) return
+    let cancelled = false
+    void readHomeForZip(homeId).then((r) => {
+      if (cancelled) return
+      if (r.error !== null) console.warn(`[add zip] could not read home ${homeId}:`, r.error)
+      setRead(r.error !== null ? { homeId, error: r.error } : { homeId, data: r.data })
+    })
+    return () => { cancelled = true }
+  }, [homeId, attempt])
+
+  const loaded = read && read.homeId === homeId && "data" in read ? read.data : null
+  const exclude = useMemo(() => (loaded ? keysWithoutZip(loaded.profile, loaded.existing) : []), [loaded])
+  const forHome = useMemo(() => (loaded ? { existing: loaded.existing, exclude } : undefined), [loaded, exclude])
+  const profile = useMemo(() => (loaded ? withPatch(loaded.profile, patch) : null), [loaded, patch])
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [stage])
+
+  const save = useCallback(async (pending: Pending) => {
+    if (!homeId || !loaded || running.current) return
+    running.current = true
+    pendingRef.current = pending
+    setSheet({ kind: "saving", title: pending.kind === "add" ? "Saving your list…" : "Saving your zip…" })
+    const tasks = pending.kind === "add" ? pending.tasks : []
+    const r = await saveZipToHome(homeId, loaded.profile, pending.patch, tasks, addedRef.current)
+    running.current = false
+    if (r.kind === "saved") {
+      if (pending.kind === "add") track("first_list_added", { count: r.addedKeys.length, keys: r.addedKeys.join(","), source: "zip_row" })
+      // Home reads the profile through SWR; refresh it so the row is gone on arrival.
+      await mutate(`home_profile:${homeId}`)
+      navigate("/home", { replace: true })
+      return
+    }
+    if (r.kind === "failed") addedRef.current = r.addedKeys
+    setSheet({ kind: "error", message: r.kind === "failed" ? r.message : "Couldn't save your zip. Try again." })
+  }, [homeId, loaded, mutate, navigate])
+
+  if (!homeId || !read || read.homeId !== homeId) {
+    return <div className="min-h-screen bg-background" aria-busy="true" aria-label="Loading" />
+  }
+  if (!loaded || !profile) {
+    return (
+      <Shell>
+        <h1 className={cn(H1, "mb-2")}>Couldn&apos;t load your home</h1>
+        <p role="alert" className="mb-6 text-muted-foreground">Check your connection and try again.</p>
+        <Button className="h-12 w-full text-base" onClick={() => { setRead(null); setAttempt((n) => n + 1) }}>Try again</Button>
+        <button type="button" onClick={() => navigate("/home")} className="mt-1 block min-h-11 w-full text-center font-medium text-muted-foreground">Back to Home</button>
+      </Shell>
+    )
+  }
+
+  const toArea = (zipPatch: DraftProfile) => {
+    setPatch(zipPatch)
+    const next = withPatch(loaded.profile, zipPatch)
+    const facts = areaFacts(next)
+    // Nothing to ask on step 2: the home has a type and the area changes nothing shown.
+    if (next.home_type && !facts.showFreeze && facts.hazards.length === 0) {
+      setPatch({ ...zipPatch, completed_at: new Date().toISOString() })
+      setStage("list")
+      return
+    }
+    setStage("area")
+  }
+
+  let body: React.ReactNode
+  if (stage === "zip") {
+    body = <ZipStep skipLabel="Not now" onDone={(p) => (p ? toArea(p) : navigate("/home"))} />
+  } else if (stage === "area") {
+    body = <AreaStep profile={profile} askType={!loaded.profile.home_type} onSaved={(p) => { setPatch((x) => ({ ...x, ...p })); setStage("list") }} />
+  } else {
+    body = (
+      <ListStep profile={profile} draftProfile={patch} saved={list} onChange={setList}
+        onAddZip={() => setStage("zip")} onRequest={(p) => void save(p)} forHome={forHome} />
+    )
+  }
+
+  return (
+    <>
+      {body}
+      <KeepListSheet view={sheet}
+        onClose={() => { if (!running.current) setSheet(null) }}
+        onRetry={() => { if (pendingRef.current) void save(pendingRef.current) }}
+        onAddToExisting={() => setSheet(null)}
+        onSkipExisting={() => setSheet(null)}
+      />
+    </>
+  )
+}
+
 function Shell({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
@@ -240,7 +405,7 @@ function Flow({ draft, update, onRequest }: FlowProps) {
  * location (must-be-true 1) — and it is looked up in a table on the device (2).
  * `onDone(null)` is Skip.
  */
-function ZipStep({ onDone }: { onDone: (patch: DraftProfile | null) => void }) {
+function ZipStep({ onDone, skipLabel = "Skip for now" }: { onDone: (patch: DraftProfile | null) => void; skipLabel?: string }) {
   const [zip, setZip] = useState("")
   const [lookup, setLookup] = useState<ZipLookup | null>(null)
   const [climate, setClimate] = useState<Climate | null>(null)
@@ -335,7 +500,7 @@ function ZipStep({ onDone }: { onDone: (patch: DraftProfile | null) => void }) {
         </Button>
         <button type="button" onClick={() => onDone(null)} disabled={busy}
           className="block min-h-11 w-full text-center text-[0.9375rem] font-medium text-muted-foreground">
-          Skip for now
+          {skipLabel}
         </button>
       </form>
     </Shell>
@@ -357,14 +522,23 @@ function factMatters(profile: HomeProfile | null, flip: Partial<Corrections>): b
   return HOME_TYPE_OPTIONS.some(({ value }) => sig(listFor(profile, value, base)) !== sig(listFor(profile, value, { ...base, ...flip })))
 }
 
-function AreaStep({ profile, onSaved }: { profile: HomeProfile; onSaved: (patch: DraftProfile) => void }) {
+/** The area facts step 2 shows: only those that change this month's list. */
+function areaFacts(profile: HomeProfile) {
+  const area = profile.area
+  const derivedFreeze = profile.freeze_risk
+  const showFreeze = !!area && derivedFreeze !== null && factMatters(profile, { freeze: !derivedFreeze })
+  const hazards = (area?.hazards ?? []).filter((h) => factMatters(profile, { hazardsOff: [h] }))
+  return { showFreeze, hazards }
+}
+
+/** `askType` false: the home already has a type (an existing home's zip), so only the area is shown. */
+function AreaStep({ profile, onSaved, askType = true }: { profile: HomeProfile; onSaved: (patch: DraftProfile) => void; askType?: boolean }) {
   const area = profile.area
   const [homeType, setHomeType] = useState<HomeType | null>(profile.home_type)
   const [c, setC] = useState<Corrections>({ freeze: null, hazardsOff: [] })
 
   const derivedFreeze = profile.freeze_risk
-  const showFreeze = !!area && derivedFreeze !== null && factMatters(profile, { freeze: !derivedFreeze })
-  const hazards = (area?.hazards ?? []).filter((h) => factMatters(profile, { hazardsOff: [h] }))
+  const { showFreeze, hazards } = areaFacts(profile)
   const range = coldestNightF(area?.hardinessZone)
 
   function save() {
@@ -424,14 +598,18 @@ function AreaStep({ profile, onSaved }: { profile: HomeProfile; onSaved: (patch:
           )}
         </>
       )}
-      {!area && <h1 className={cn(H1, "mb-6")}>What kind of home?</h1>}
-      {area && <p className="mb-3 font-medium">A zip can&apos;t tell us this. What kind of home?</p>}
-      <div className="mb-8 space-y-2" role="radiogroup" aria-label="Home type">
-        {HOME_TYPE_OPTIONS.map((o) => (
-          <OptionRow key={o.value} role="radio" selected={homeType === o.value} ariaChecked={homeType === o.value}
-            onClick={() => setHomeType(o.value)} label={o.label} hint={o.hint} />
-        ))}
-      </div>
+      {askType && (
+        <>
+          {!area && <h1 className={cn(H1, "mb-6")}>What kind of home?</h1>}
+          {area && <p className="mb-3 font-medium">A zip can&apos;t tell us this. What kind of home?</p>}
+          <div className="mb-8 space-y-2" role="radiogroup" aria-label="Home type">
+            {HOME_TYPE_OPTIONS.map((o) => (
+              <OptionRow key={o.value} role="radio" selected={homeType === o.value} ariaChecked={homeType === o.value}
+                onClick={() => setHomeType(o.value)} label={o.label} hint={o.hint} />
+            ))}
+          </div>
+        </>
+      )}
       <Button className="h-12 w-full text-base" disabled={!homeType} onClick={save}>See this month</Button>
     </Shell>
   )
@@ -497,9 +675,12 @@ type ListProps = {
   onChange: (list: DraftList) => void
   onAddZip: () => void
   onRequest: (p: Pending) => void
+  /** An existing home's zip (ZipForHome): offer only what the zip brings that
+   *  the home doesn't have — its tasks and the keys to leave out. */
+  forHome?: { existing: ExistingTask[]; exclude: string[] }
 }
 
-function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest }: ListProps) {
+function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest, forHome }: ListProps) {
   const homeType = profile.home_type
   const [ls, setLs] = useState<DraftList>(() => (saved && saved.month === thisMonth() ? saved : freshList()))
   const { month, answers, checked, removed, corrections: c, exteriorMine } = ls
@@ -524,8 +705,13 @@ function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest 
   const list = useMemo(() => {
     const input = listInput(profile, homeType, c, {})
     if (exteriorMine) { input.facts = { ...input.facts, building_handles_exterior: false }; input.derived = { ...input.derived, buildingHandlesExterior: false } }
+    if (forHome) {
+      // Nothing the home has, nothing she turned down, and nothing it would be
+      // offered without a zip: only what the zip brings. No year-round fillers.
+      return firstList({ ...input, month, existing: forHome.existing, dismissed: [...profile.dismissed_care, ...forHome.exclude], fillers: false })
+    }
     return firstList({ ...input, month })
-  }, [profile, homeType, c, exteriorMine, month])
+  }, [profile, homeType, c, exteriorMine, month, forHome])
 
   const rows = list.rows.filter((r) => !(r.entry.key in removed))
   const isChecked = (r: FirstListRow) => {
@@ -607,17 +793,17 @@ function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest 
 
   return (
     <Shell footer={footer}>
-      {profile.area && <OnboardingSteps step={3} />}
+      {(profile.area || forHome) && <OnboardingSteps step={3} />}
       <p className="mb-2 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{eyebrow}</p>
       <h1 className={cn(H1, "mb-2")}>Worth doing this month</h1>
       <p className="mb-6 text-muted-foreground">
-        {profile.area ? "Nothing is added until you tap Add." : "What most homes need now. Nothing is added until you tap Add."}
+        {profile.area || forHome ? "Nothing is added until you tap Add." : "What most homes need now. Nothing is added until you tap Add."}
       </p>
       {note && <p role="status" className="mb-4 text-sm" style={{ color: "var(--hh-sub)" }}>{note}</p>}
 
       {rows.length === 0 ? (
         <p className="rounded-2xl border bg-[var(--hh-surface)] px-5 py-6 text-center" style={{ borderColor: "var(--hh-line)" }} data-testid="first-list-empty">
-          Nothing pressing this month.
+          {forHome ? "Your zip doesn’t add anything new this month." : "Nothing pressing this month."}
         </p>
       ) : (
         <ul className="divide-y divide-[var(--hh-line)] overflow-hidden rounded-2xl border bg-[var(--hh-surface)]" style={{ borderColor: "var(--hh-line)" }} data-testid="first-list">
@@ -635,7 +821,7 @@ function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest 
         </ul>
       )}
 
-      {list.leftOff.length > 0 && (
+      {!forHome && list.leftOff.length > 0 && (
         <div className="mt-4 rounded-2xl px-5 py-4" style={{ background: "var(--hh-gold-soft)" }} data-testid="not-on-your-list">
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.06em]" style={{ color: "var(--hh-gold-ink)" }}>Not on your list</p>
           <ul className="space-y-2">
@@ -652,7 +838,7 @@ function ListStep({ profile, draftProfile, saved, onChange, onAddZip, onRequest 
         </div>
       )}
 
-      {!profile.area && (
+      {!profile.area && !forHome && (
         <div className="mt-4 flex items-center gap-3 rounded-2xl border border-dashed px-5 py-4" style={{ borderColor: "var(--hh-line2)" }}>
           <span className="min-w-0 flex-1 text-[0.9375rem] text-muted-foreground">Add your zip for tasks that fit your area.</span>
           <button type="button" onClick={onAddZip} className="min-h-11 shrink-0 font-bold" style={{ color: "var(--hh-teal)" }}>Add zip</button>

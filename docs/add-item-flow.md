@@ -359,19 +359,31 @@ page watches it.
   and a text **Don't Add**. Nothing is added until Add; Don't Add saves the key
   to the item's `dismissedCare`. A failed write shows its reason on the row and
   leaves it there. For a kind the library has no care for (a microwave, or a
-  sub-type she filed it under such as a garbage disposal) the line stays "The
-  manual is where this item's schedule, warranty window and answers come
-  from." Either way **Add the Manual** is the card's one filled button. The card exists only while the item
+  sub-type she filed it under such as a garbage disposal) — and for any item
+  she named herself that the library doesn't cover ("Kitchen faucet") — the
+  line is "No typical care for this yet. Add its manual, or add your own
+  task." with **Add the Manual** (filled) over **Add Your Own Task**
+  (outlined), stacked at one width; Add Your Own Task opens
+  `/maintenance/custom?item=<id>` with that item picked, and the task saved
+  there lives on the item (seventeen fixes mock m4, owner 2026-11-25,
+  **superseding** "The manual is where this item's schedule, warranty window
+  and answers come from." for these items). A kind that HAS typical care she
+  passed on with Don't Add keeps that earlier sentence (owner, 2026-11-25:
+  Don't Add stays as it is). **Add the Manual** is the card's one filled
+  button in every case. The card exists only while the item
   has no tasks, so the first Add moves the page on: the task lands under
   Maintenance and anything left sits in the Suggested band. A manual with
   nothing found keeps "No upkeep found in this manual yet." — before-friends
   mock 2 (owner, 2026-11-24), **superseding HH-91**'s headline "No upkeep yet —
   add the manual"
 - **An item we couldn't identify asks "What is it?" in that card.** When
-  `kindOf` finds no kind and the item has no sub-type (or "other"), the line is
-  "We couldn't tell what this is from its model. Pick one to see its typical
-  care." (or "Pick what this is to see its typical care." with no brand or
-  model), then outlined 44pt chips for only the kinds with item-level care, by
+  `kindOf` finds no kind, the item has no sub-type (or "other"), AND its name
+  is still the composed "Brand Model" placeholder (`hasPlaceholderName`, the
+  rule `nameForKnownKind` renames by — seventeen fixes mock m4, owner
+  2026-11-25: a name she typed already says what it is, so it is never asked;
+  this **supersedes** the no-brand "Pick what this is to see its typical
+  care." line, which no item can reach now), the line is "We couldn't tell
+  what this is from its model. Pick one to see its typical care.", then outlined 44pt chips for only the kinds with item-level care, by
   the add screen's labels: Dishwasher, Washer, Dryer, Fridge, Furnace (Water
   heater and Oven or range have none, so a pick would show nothing). Then "Or
   add the manual for the exact schedule." and **Add the Manual**, still the one

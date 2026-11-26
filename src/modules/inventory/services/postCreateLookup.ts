@@ -132,15 +132,26 @@ export async function runPostCreateLookup(item: ItemUnit): Promise<void> {
  * is it?" (before-friends PR C), so the two can never rename differently.
  * `item` must be the item as it is NOW.
  */
+/**
+ * Is the item still called by the composed "Brand Model" placeholder — the
+ * one case where nobody has said what it is? nameForKnownKind renames only
+ * then, and the item page's "What is it?" chips show only then (seventeen
+ * fixes, mock m4): a name she typed herself ("Kitchen faucet") already says.
+ */
+export function hasPlaceholderName(item: Pick<ItemUnit, "display_name" | "brand" | "model">): boolean {
+  const brand = (item.brand ?? "").trim()
+  const model = (item.model ?? "").trim()
+  return !!brand && !!model && item.display_name.trim() === `${brand} ${model}`
+}
+
 export async function nameForKnownKind(
   item: Pick<ItemUnit, "item_unit_id" | "home_id" | "display_name" | "brand" | "model" | "room_id">,
   kind: { item_category: string | null; sub_type: string | null },
 ): Promise<string | null> {
+  if (!hasPlaceholderName(item)) return null
   const brand = (item.brand ?? "").trim()
   const model = (item.model ?? "").trim()
-  if (!brand || !model) return null
   const placeholder = `${brand} ${model}`
-  if (item.display_name.trim() !== placeholder) return null
   const [existing, rooms] = await Promise.all([getItemUnits(item.home_id), getRooms(item.home_id)])
   // A failed read only weakens the collision check (a duplicate name is
   // survivable, per composeItemName); the rename still follows the kind.

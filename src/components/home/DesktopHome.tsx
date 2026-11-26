@@ -23,7 +23,7 @@ function fullToday(): string {
 }
 
 export function DesktopHome({
-  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, extras, onRetryExtras, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep,
+  tasks, upcoming, nextUp = null, comingUp = null, askStarters = [], warranties, notices, extras, onRetryExtras, homeId, completingId, actionError = null, onComplete, onSnooze, nextStep, belowNextUp, setupRow,
 }: {
   tasks: DashboardTask[]
   /** Forward schedule for the Coming-up drawer. */
@@ -46,6 +46,11 @@ export function DesktopHome({
   onSnooze: (id: string) => void
   /** The one next step under the week, when Home has one (a home with tasks but no items: Snap a label). */
   nextStep?: ReactNode
+  /** One row under Next up: "Add your zip" when the home has none (mock m5). */
+  belowNextUp?: ReactNode
+  /** An empty home after Not now (mock m3): this row stands in Next up's place,
+   *  and only In a pinch follows. */
+  setupRow?: ReactNode
 }) {
   const { firstName } = useDisplayName()
 
@@ -72,6 +77,9 @@ export function DesktopHome({
             in two columns — the day's task and what's ahead on the left, what
             to know and what to reach for on the right. */}
         <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+          {setupRow ? (
+            <div className="flex flex-col gap-6 [&_[data-testid=empty-home-collapsed]]:ml-0">{setupRow}</div>
+          ) : (
           <div className="flex flex-col gap-6">
             <NextUp
               homeId={homeId}
@@ -84,12 +92,14 @@ export function DesktopHome({
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
+            {belowNextUp}
             <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
             {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>
+          )}
           <div className="flex flex-col gap-6">
-            <HomeLoadNote extras={extras} onRetry={onRetryExtras} />
-            <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />
+            {!setupRow && <HomeLoadNote extras={extras} onRetry={onRetryExtras} />}
+            {!setupRow && <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />}
             {homeId && <PinchAndPinned homeId={homeId} tree="desktop" />}
           </div>
         </div>

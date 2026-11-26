@@ -54,6 +54,7 @@ const { WhatsInYourHomeCard } = await import("./WhatsInYourHomeCard")
 
 const onEngaged = vi.fn()
 const onFinished = vi.fn()
+const onCollapsedChange = vi.fn()
 
 function Landed() {
   const loc = useLocation()
@@ -64,7 +65,7 @@ function tree(fallback: Record<string, unknown> = {}) {
     <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, fallback }}>
       <MemoryRouter initialEntries={["/home"]}>
         <Routes>
-          <Route path="/home" element={<WhatsInYourHomeCard homeId="home-1" onEngaged={onEngaged} onFinished={onFinished} />} />
+          <Route path="/home" element={<WhatsInYourHomeCard homeId="home-1" onEngaged={onEngaged} onFinished={onFinished} onCollapsedChange={onCollapsedChange} />} />
           <Route path="*" element={<Landed />} />
         </Routes>
       </MemoryRouter>
@@ -419,6 +420,16 @@ describe("Not now and the collapsed row", () => {
     await loaded()
     tap("Not now")
     expect(onFinished).not.toHaveBeenCalled()
+  })
+
+  it("tells Home when it shrinks to its row and when it opens again (seventeen fixes, mock m3)", async () => {
+    onCollapsedChange.mockClear()
+    renderCard()
+    await loaded()
+    tap("Not now")
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(true)
+    fireEvent.click(within(screen.getByTestId("empty-home-collapsed")).getByRole("button", { name: /Tell us what's in your home/ }))
+    expect(onCollapsedChange).toHaveBeenLastCalledWith(false)
   })
 
   it("Not now: the collapsed row in the card's place (the full card is not rendered); tapping it brings the card back; the flag survives a remount", async () => {

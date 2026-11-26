@@ -17,7 +17,7 @@
  * Pass `m` for mobile spacing.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { AlertTriangle, BellRingIcon, CheckCircle2, ChevronDownIcon, ChevronUpIcon, Circle, GitBranchIcon, RotateCcw, SlidersHorizontalIcon, Check, BellOff, Pencil, ArrowUpRight } from "lucide-react"
 import type { ItemUnit, KnowledgeChunk, Json } from "@/integrations/types"
 import { getTaskInstances, type TaskInstanceWithDetails, type TaskSupplyEmbed, type TaskTemplateWithSchedule } from "@/modules/care"
@@ -28,7 +28,7 @@ import { useTaskActions } from "@/components/home/tasks/shared"
 import { diffDays, localToday } from "../../../shared/dates/calendar"
 import { SuggestedRow, SuggestedSource } from "@/components/care/SuggestedRow"
 import { KIND_LABELS } from "@/components/care/kindLabels"
-import { suggestionsForItem, kindOf, entryByKey } from "../../../shared/care/library"
+import { suggestionsForItem, kindOf, entryByKey, entriesForKind } from "../../../shared/care/library"
 import { dueKindOf, windowPhrase } from "@/lib/dueWindow"
 import { reviewBucketFor, isScheduledTask, notifiesPhone, type ReviewBucket } from "../../../shared/tasks/reviewBuckets"
 import { cadenceLabel } from "../../../shared/tasks/cadenceLabel"
@@ -43,7 +43,7 @@ import { USAGE_TIP_TAG } from "../../../shared/tasks/taxonomy"
 import { isAgendaEligible } from "../../../shared/tasks/agendaEligibility"
 import { comesDueOn } from "../../../shared/tasks/snooze"
 import { updateItemUnit } from "@/modules/items/services/itemService"
-import { nameForKnownKind } from "@/modules/inventory/services/postCreateLookup"
+import { hasPlaceholderName, nameForKnownKind } from "@/modules/inventory/services/postCreateLookup"
 import { WHAT_IS_IT_CHIPS, KIND_CATEGORY } from "@/components/smart-add/identifyData"
 import { ScanningLine } from "@/components/manuals/ScanningLine"
 import type { ManualReading } from "@/lib/manualReviewState"
@@ -934,8 +934,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
 
   // "What is it?" (PR C): shown only while we genuinely don't know. An item
   // filed under a kind the library has no care for (a garbage disposal) is
-  // known, and "We couldn't tell what this is" would be untrue of it.
-  const unidentified = kindOf(item) === null && (!item.sub_type || item.sub_type === "other")
+  // known, and "We couldn't tell what this is" would be untrue of it. Nor is
+  // one she NAMED (seventeen fixes, mock m4): "Kitchen faucet" was asked if it
+  // was a dishwasher. Only the composed "Brand Model" placeholder — the same
+  // rule nameForKnownKind renames by — means nobody has said what it is.
+  const unidentified = kindOf(item) === null && (!item.sub_type || item.sub_type === "other") && hasPlaceholderName(item)
   const [picking, setPicking] = useState<string | null>(null)
   const [pickError, setPickError] = useState<string | null>(null)
   // Her tap is the only thing that files it. The name changes only when it is
@@ -1031,7 +1034,12 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
     // PR C: no typical care because we don't know what it is. Needs the page's
     // item update; without it the pick would land and nothing would change.
     const askKind = !hasManual && offered.length === 0 && unidentified && !!onItemUpdate
-    const hasIdentity = !!(item.brand ?? "").trim() || !!(item.model ?? "").trim()
+    // Mock m4: a named item, or a known kind, the library has no typical care
+    // for. Its two ways forward, stacked at one width: its manual (the card's
+    // one filled button) or a task of her own, on this item. A kind that HAS
+    // typical care she passed on keeps the earlier sentence (owner, Nov 25:
+    // Don't Add stays as it is).
+    const noTypicalCare = !hasManual && offered.length === 0 && !askKind && entriesForKind(kindOf(item)).length === 0
     return (
       <Card>
         <div data-testid="no-upkeep-card" className="flex flex-col items-center gap-3 px-4 py-7 text-center">
@@ -1046,10 +1054,11 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               : offered.length > 0
                 ? `Here's what most ${kindLabel} need. Add the manual for this one's exact schedule.`
                 : askKind
-                  ? hasIdentity
-                    ? "We couldn't tell what this is from its model. Pick one to see its typical care."
-                    : "Pick what this is to see its typical care."
-                  : "The manual is where this item's schedule, warranty window and answers come from."}
+                  // Only a "Brand Model" placeholder asks now, so the model is always there to name.
+                  ? "We couldn't tell what this is from its model. Pick one to see its typical care."
+                  : noTypicalCare
+                    ? "No typical care for this yet. Add its manual, or add your own task."
+                    : "The manual is where this item's schedule, warranty window and answers come from."}
           </p>
           {askKind && (
             <>
@@ -1087,7 +1096,29 @@ export function CareBlock({ item, homeId, tasks, chunks, hasManual, reading = nu
               ))}
             </div>
           )}
-          {!hasManual && onAddManual && (
+          {noTypicalCare && (
+            <div className="flex w-full max-w-[280px] flex-col gap-2.5" data-testid="no-typical-care-actions">
+              {onAddManual && (
+                <button
+                  type="button"
+                  onClick={onAddManual}
+                  className="min-h-11 w-full rounded-full px-6 py-2.5 text-[0.84375rem] font-bold text-white"
+                  style={{ background: "var(--hh-teal-fill)" }}
+                >
+                  Add the Manual
+                </button>
+              )}
+              {/* The add-task form with this item already picked (OwnTasksPage reads ?item=). */}
+              <Link
+                to={`/maintenance/custom?item=${encodeURIComponent(item.item_unit_id)}`}
+                className="flex min-h-11 w-full items-center justify-center rounded-full border px-6 py-2.5 text-[0.84375rem] font-bold"
+                style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+              >
+                Add Your Own Task
+              </Link>
+            </div>
+          )}
+          {!noTypicalCare && !hasManual && onAddManual && (
             // The card's ONE filled button (design/task-card.md, HH-109): each
             // task's Add above is outlined, Don't Add is text.
             <button

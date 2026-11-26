@@ -41,8 +41,12 @@ const pickById = (id: string) => ALL_PICKS.find((p) => p.id === id)
 
 type Stage = "pick" | "care" | "collapsed"
 
-export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
+export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished, onCollapsedChange }: {
   homeId: string
+  /** The card shrank to its one row (Not now, or Done with nothing added), or
+   *  came back from it. Home lays itself out around the row (mock m3): the
+   *  greeting, Ask, the row in Next up's place, then In a pinch. */
+  onCollapsedChange?: (collapsed: boolean) => void
   /** She has started (See Suggested Care, on a home the read confirmed empty): keep the card while she adds. */
   onEngaged: () => void
   /** Done: Home may show whatever it now is. */
@@ -81,6 +85,7 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
   const collapse = () => {
     writeLocal(collapsedKey(homeId), "1")
     setStage("collapsed")
+    onCollapsedChange?.(true)
   }
   /** Not now. After See Suggested Care Home is pinned to this card, so let go:
    *  a home she added to meanwhile is a working home again. */
@@ -97,6 +102,7 @@ export function WhatsInYourHomeCard({ homeId, onEngaged, onFinished }: {
           onClick={() => {
             removeLocal(collapsedKey(homeId))
             setStage("pick")
+            onCollapsedChange?.(false)
           }}
           className="flex min-h-11 w-full items-center gap-3 rounded-2xl border px-6 py-6 text-left shadow-sm"
           style={{ background: SURFACE, borderColor: LINE }}

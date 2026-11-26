@@ -5,9 +5,6 @@ import {
   ListChecksIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  WindIcon,
-  RefrigeratorIcon,
-  UtensilsIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -54,50 +51,21 @@ function GetStarted({ alignLeftLg }: { alignLeftLg?: boolean }) {
   )
 }
 
-/** Illustrative in-app preview — static sample data, never a live fetch. */
+/**
+ * The first list a new person sees (seventeen fixes, mock m6): a REAL capture
+ * of the first minute's "Worth doing this month" for a house in 94110, taken
+ * from the emulator, in the visitor's theme. It replaced a drawn Home that no
+ * longer matched the app. Same bezel, size and place as the drawing.
+ */
+const FIRST_LIST_ALT = "Homehub's first list for a house in 94110: Worth doing this month. Nothing is added until you tap Add."
+
 function PhoneMock() {
   return (
     // design-rules: allow raw-color — the phone's bezel is drawn hardware, black in both themes.
     <div className="mx-auto" style={{ width: 285, borderRadius: 39, background: "#0A0C0B", padding: 8, boxShadow: "0 30px 60px rgba(11,26,22,0.30)" }}>
-      <div style={{ borderRadius: 32, overflow: "hidden", background: "var(--hh-bg)" }}>
-        <div className="px-[17px] pt-[18px]">
-          <div className="flex justify-between items-center mb-3.5">
-            <div style={{ width: 62, height: 9, borderRadius: 4, background: INK }} />
-            <div className="flex gap-[3px]">{[0, 1, 2].map((i) => <div key={i} style={{ width: 5, height: 9, borderRadius: 1, background: "var(--hh-icon-faint)" }} />)}</div>
-          </div>
-          <div className="text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: TEAL }}>TUESDAY</div>
-          <div className="text-[1.25rem] font-extrabold tracking-[-0.5px]" style={{ color: INK }}>Good morning</div>
-        </div>
-        <div className="mx-[17px] my-3.5 p-3.5" style={{ background: "var(--hh-surface)", borderRadius: 18, boxShadow: "0 6px 18px rgba(11,26,22,0.08)" }}>
-          <div className="flex justify-between mb-2.5">
-            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.3px] px-2 py-1 rounded-full" style={{ color: "var(--hh-clay)", background: "var(--hh-clay-soft)" }}>ESSENTIAL</span>
-            <span className="text-[0.75rem] font-bold" style={{ color: TEAL }}>Today · 2 min</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center shrink-0" style={{ width: 38, height: 38, borderRadius: 12, background: "var(--hh-teal-wash)" }}>
-              <WindIcon size={19} style={{ color: TEAL }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[0.875rem] font-extrabold tracking-[-0.2px]" style={{ color: INK }}>Replace the HVAC filter</div>
-              <div className="text-[0.75rem] mt-0.5" style={{ color: SUB }}>Furnace &amp; A/C · Utility</div>
-            </div>
-            <div className="shrink-0" style={{ width: 24, height: 24, borderRadius: 12, border: `2px solid ${TEAL}` }} />
-          </div>
-        </div>
-        <div className="mx-[17px] mb-[18px]">
-          {[
-            { Icon: RefrigeratorIcon, t: "Clean fridge coils", w: "In 4 days" },
-            { Icon: UtensilsIcon, t: "Dishwasher clean cycle", w: "In 9 days" },
-          ].map(({ Icon, t, w }) => (
-            <div key={t} className="flex items-center gap-2.5 py-2">
-              <div className="flex items-center justify-center shrink-0" style={{ width: 29, height: 29, borderRadius: 9, background: "var(--hh-surface2)" }}>
-                <Icon size={14} style={{ color: TEAL }} />
-              </div>
-              <div className="flex-1 text-[0.78125rem] font-semibold" style={{ color: INK }}>{t}</div>
-              <div className="text-[0.75rem] font-semibold" style={{ color: "var(--hh-faint)" }}>{w}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ borderRadius: 32, overflow: "hidden", background: "var(--hh-bg)" }} data-testid="landing-phone">
+        <img src="/landing/first-list-light.webp" width={269} height={386} alt={FIRST_LIST_ALT} className="block h-auto w-full dark:hidden" />
+        <img src="/landing/first-list-dark.webp" width={269} height={386} alt={FIRST_LIST_ALT} className="hidden h-auto w-full dark:block" />
       </div>
     </div>
   )
@@ -107,7 +75,7 @@ const FEATURES = [
   { Icon: PackageIcon, kicker: "Inventory", t: "Every appliance, organized", s: "Model, purchase date, warranty and manual for every appliance, kept in one place." },
   { Icon: ListChecksIcon, kicker: "Maintenance", t: "A schedule that builds itself", s: "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips." },
   { Icon: ShieldCheckIcon, kicker: "Warranties", t: "Coverage you won't forget", s: "See what's protected and what's lapsing soon, all in one tidy list." },
-  { Icon: SparklesIcon, kicker: "Ask", t: "Answers from your manuals", s: "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance." },
+  { Icon: SparklesIcon, kicker: "Ask", t: "Answers about your home", s: "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance." },
 ]
 
 const STEPS: [string, string, string][] = [
@@ -133,7 +101,7 @@ export default function Landing() {
                 Everything your home needs, in one place.
               </h1>
               <p className="text-[1.03125rem] lg:text-[1.125rem] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
-                Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.
+                Tell us your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.
               </p>
               <GetStarted alignLeftLg />
             </div>
