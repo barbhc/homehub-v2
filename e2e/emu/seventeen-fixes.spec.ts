@@ -119,6 +119,8 @@ async function ownerUid(db: Firestore): Promise<string> {
 async function resetZip(db: Firestore, uid: string) {
   const del = Object.fromEntries(ZIP_FIELDS.map((f) => [f, FieldValue.delete()]))
   await db.doc(`homes/${HOME}`).set(del, { merge: true })
+  // The answer the list's question saves (a dotted path needs update(), not set-merge).
+  await db.doc(`homes/${HOME}`).update({ "careFacts.has_water_heater": FieldValue.delete() })
   await db.doc(PREFS(uid)).set({ zip_row_dismissed: FieldValue.delete() }, { merge: true })
   // Any task the walk added from the zip's list.
   const added = await db.collection(`homes/${HOME}/taskTemplates`).where("externalKey", "==", "library:home.quake_straps").get()
@@ -177,6 +179,7 @@ for (const colorScheme of ["light", "dark"] as const) for (const { label, viewpo
       // No account sheet, ever; nothing added before Add.
       await expect(page.getByText("Keep your list")).toHaveCount(0)
       expect((await db.collection(`homes/${HOME}/taskTemplates`).where("externalKey", "==", "library:home.quake_straps").get()).size).toBe(0)
+      // Its question first: Yes picks it.
       await rows.first().getByRole("radio", { name: "Yes" }).click()
       await page.getByRole("button", { name: "Add 1 task" }).click()
       await expect(page).toHaveURL(/\/home$/, { timeout: 20_000 })

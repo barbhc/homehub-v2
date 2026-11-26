@@ -79,7 +79,8 @@ describe("precedence", () => {
     // Next up (belowNextUp), never placed in Home's own top.
     expect(home).not.toContain("ProfileCompletionBanner")
     expect(home).not.toContain("Finish your home profile")
-    expect(home).toContain("belowNextUp={zipRow}")
+    expect(home).toContain('belowNextUp={zipRowFor("phone")}')
+    expect(home).toContain('belowNextUp={zipRowFor("desktop")}')
   })
 
   it("does not tell them to add an item they have already added", () => {

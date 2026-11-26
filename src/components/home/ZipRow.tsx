@@ -17,6 +17,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { ChevronRightIcon, XIcon } from "lucide-react"
 import { InlineError } from "@/components/layout/LoadStates"
+import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { dismissZipRow, getDismissedZipRows } from "@/lib/userPreferences"
 import { readLocal, removeLocal, writeLocal } from "./dayOneData"
 
@@ -31,7 +32,18 @@ const ADD_ZIP_PATH = "/home/zip"
 
 type State = "checking" | "shown" | "closed"
 
-export function ZipRow({ homeId, userId }: { homeId: string; userId: string }) {
+/**
+ * Home mounts a phone tree and a desktop tree and CSS shows one, so only the
+ * row in the lane on screen renders (as PinchAndPinned does): one row, one
+ * read, and a close can't leave a twin standing in the other tree.
+ */
+export function ZipRow({ homeId, userId, tree }: { homeId: string; userId: string; tree: "phone" | "desktop" }) {
+  const isDesktop = useIsDesktop()
+  if (isDesktop !== (tree === "desktop")) return null
+  return <ZipRowShown homeId={homeId} userId={userId} />
+}
+
+function ZipRowShown({ homeId, userId }: { homeId: string; userId: string }) {
   const mirror = zipRowMirrorKey(userId, homeId)
   const [state, setState] = useState<State>(() => (readLocal(mirror) === "1" ? "closed" : "checking"))
   /** A close the server refused: the row is back, and says so. */

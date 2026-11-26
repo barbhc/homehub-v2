@@ -78,7 +78,7 @@ export function DesktopHome({
             to know and what to reach for on the right. */}
         <div className="grid items-start gap-[22px] lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
           {setupRow ? (
-            <div className="flex flex-col gap-6">{setupRow}</div>
+            <div className="flex flex-col gap-6 [&_[data-testid=empty-home-collapsed]]:ml-0">{setupRow}</div>
           ) : (
           <div className="flex flex-col gap-6">
             <NextUp
@@ -92,7 +92,7 @@ export function DesktopHome({
               onComplete={onComplete}
               onSnooze={onSnooze}
             />
-            {belowNextUp && <div className="max-w-xl">{belowNextUp}</div>}
+            {belowNextUp}
             <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
             {nextStep && <div className="max-w-xl">{nextStep}</div>}
           </div>

@@ -304,7 +304,8 @@ export default function Home() {
         onChanged={() => { void refresh(); void refreshProfile() }} />
     : null
 
-  const zipRow = zipMissing && homeId && user?.id ? <ZipRow key={homeId} homeId={homeId} userId={user.id} /> : null
+  const zipRowFor = (tree: "phone" | "desktop") =>
+    zipMissing && homeId && user?.id ? <ZipRow key={homeId} homeId={homeId} userId={user.id} tree={tree} /> : null
 
   return (
     <div className="flex flex-col pb-8">
@@ -449,7 +450,7 @@ export default function Home() {
               extras={extras}
               onRetryExtras={() => void refresh()}
               nextStep={nextStep}
-              belowNextUp={zipRow}
+              belowNextUp={zipRowFor("phone")}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
@@ -481,7 +482,7 @@ export default function Home() {
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
             nextStep={nextStep ?? undefined}
-            belowNextUp={zipRow}
+            belowNextUp={zipRowFor("desktop")}
           />
         </div>
           </>

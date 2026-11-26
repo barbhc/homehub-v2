@@ -15,7 +15,7 @@ vi.mock("@/lib/userPreferences", () => ({
 }))
 
 const { ZipRow } = await import("./ZipRow")
-const renderRow = (homeId = "h1") => render(<MemoryRouter><ZipRow homeId={homeId} userId="u1" /></MemoryRouter>)
+const renderRow = (homeId = "h1") => render(<MemoryRouter><ZipRow homeId={homeId} userId="u1" tree="phone" /></MemoryRouter>)
 
 beforeEach(() => {
   cleanup()

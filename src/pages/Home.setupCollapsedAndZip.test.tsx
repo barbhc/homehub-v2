@@ -135,13 +135,14 @@ describe("m3: an empty Home after Not now", () => {
 describe("m5: the zip row, below Next up", () => {
   const task = { id: "ti-1", title: "Test the smoke alarms", next_due_date: new Date().toISOString().slice(0, 10), itemName: null, item_id: null, priority: "critical", duePhrase: null, safetyNote: null }
 
-  it("shows once in each lane, after Next up and before Coming up, when the home has no zip", async () => {
+  it("shows once, in the lane on screen, after Next up, when the home has no zip", async () => {
     dash.totalItems = 2
     dash.scheduledTaskCount = 3
     dash.upcoming = [task]
     renderHome()
     const rows = await screen.findAllByTestId("zip-row")
-    expect(rows).toHaveLength(2)
+    // One row: the phone lane is the one on screen here (useIsDesktop false).
+    expect(rows).toHaveLength(1)
     const p = phone()
     const order = [...p.querySelectorAll("[data-testid]")].map((e) => e.getAttribute("data-testid"))
     expect(order.indexOf("next-up")).toBeGreaterThan(-1)
