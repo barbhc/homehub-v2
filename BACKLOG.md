@@ -75,11 +75,6 @@ branch that added it._
 
 ## Seventeen fixes (#309, #310, 2026-11-26) — what they leave
 
-- **Re-filing a self-named item doesn't reach the care library.** A washer
-  she named "front loader" and then filed as Major appliance → Washing
-  machine saves the category LABEL ("Major Appliance"); the care library's
-  `kindOf` reads that text, not `sub_type`, so the item still gets no typical
-  care and no chips. Fix: make `kindOf` read `sub_type` first.
 - **The first list's order moved** when the air filter became Essential: the
   list sorts by tier, so the filter now sits above outdoor taps (Minneapolis,
   November) and hurricane prep (Miami, May), unlike the approved D8 mock.

@@ -43,6 +43,34 @@ export interface KindInput {
   category?: string | null
   brand?: string | null
   model?: string | null
+  /** The typed sub-type id the category picker stores ("washing-machine"). */
+  sub_type?: string | null
+}
+
+/**
+ * Sub-type ids that name a kind outright. Checked BEFORE the text rules: the
+ * item page's category picker (Major appliance → Washing machine) writes the
+ * sub-type here but only the group's label ("Major Appliance") to `category`,
+ * so a washer she named "front loader" and then filed stayed unknown, with no
+ * typical care (seventeen fixes follow-up, 2026-11-26). Only unambiguous ids:
+ * "hair-dryer", "power-washer" and "wine-fridge" would hit the wrong text rule,
+ * and "tankless-water-heater" needs care the tank entries don't describe, so
+ * those fall through to the text rules exactly as before.
+ */
+const SUBTYPE_KIND: Record<string, CareKind> = {
+  "washing-machine": "washer",
+  dryer: "dryer",
+  dishwasher: "dishwasher",
+  refrigerator: "refrigerator",
+  "water-heater": "water_heater",
+  "hvac-furnace": "furnace",
+  "oven-range": "oven_range",
+  "air-conditioner": "hvac",
+  "air-purifier": "air_purifier",
+  "range-hood": "range_hood",
+  microwave: "microwave",
+  "ceiling-fan": "ceiling_fan",
+  "coffee-maker": "coffee_machine",
 }
 
 /** Ordered: the first pattern that hits wins, so specific beats generic. */
@@ -75,6 +103,8 @@ const KIND_RULES: [CareKind, RegExp][] = [
  * heat-pump rule and become HVAC (library.test.ts pins that it does not).
  */
 export function kindOf(item: KindInput): CareKind | null {
+  const picked = item.sub_type ? SUBTYPE_KIND[item.sub_type] : undefined
+  if (picked) return picked
   const category = item.category ? item.category.replace(/-/g, " ") : null
   const text = [item.display_name, category, item.brand, item.model].filter(Boolean).join(" ")
   for (const [kind, re] of KIND_RULES) if (re.test(text)) return kind
