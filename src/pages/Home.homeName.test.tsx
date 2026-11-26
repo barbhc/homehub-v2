@@ -36,7 +36,6 @@ vi.mock("@/hooks/useFeatureTour", () => ({ useFeatureTour: () => ({ restartTour:
 vi.mock("@/hooks/useDisplayName", () => ({ useDisplayName: () => ({ firstName: null, fullName: null }) }))
 vi.mock("@/components/dashboard/WhatsNewBanner", () => ({ WhatsNewBanner: () => null }))
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => <div data-testid="push-nudge" /> }))
-vi.mock("@/components/dashboard/ProfileCompletionBanner", () => ({ ProfileCompletionBanner: () => <div data-testid="profile-banner" /> }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
 // The card's own states are WhatsInYourHomeCard.test.tsx's; here, only whether Home places it and honours its pin.
 vi.mock("@/components/home/WhatsInYourHomeCard", () => ({

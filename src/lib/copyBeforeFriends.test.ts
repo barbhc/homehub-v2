@@ -6,7 +6,7 @@
  * presence check would let the old one come back unnoticed.
  */
 import { describe, it, expect } from "vitest"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 
 // Repo-root relative, like the other static guards (tsc -b rejects __dirname here).
 const landing = readFileSync("src/pages/Landing.tsx", "utf8")
@@ -16,8 +16,11 @@ const beta = readFileSync("public/beta.html", "utf8")
 // tourSteps.ts splits long strings over lines with `" +\n "`; join them back.
 const joined = (src: string) => src.replace(/"\s*\+\s*\n\s*"/g, "")
 
+// Seventeen fixes (mock m6, owner-approved 2026-11-25) replaced the hero's line
+// and the Ask title: the first thing a new person does is type a zip.
 const LANDING_NEW = [
-  "Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.",
+  "Tell us your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.",
+  "Answers about your home",
   "Model, purchase date, warranty and manual for every appliance, kept in one place.",
   "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips.",
   "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance.",
@@ -27,6 +30,8 @@ const LANDING_NEW = [
   "Tailored to your home, your climate and what you own.",
 ]
 const LANDING_OLD = [
+  "Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.",
+  "Answers from your manuals",
   "Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.",
   "Scan a label or snap a photo. Homehub identifies the model and files it by room.",
   "From your real manuals, not generic advice — with calm reminders so nothing slips.",
@@ -82,5 +87,13 @@ describe("before-friends copy (mock 3)", () => {
 
   it("no new sentence carries an em dash", () => {
     for (const s of [...LANDING_NEW, ...TOUR_NEW, ...BETA_NEW]) expect(s).not.toContain("—")
+  })
+})
+
+describe("the welcome page's phone (seventeen fixes, mock m6)", () => {
+  it.each(["public/landing/first-list-light.webp", "public/landing/first-list-dark.webp"])("%s ships, small enough for a hero", (file) => {
+    expect(existsSync(file)).toBe(true)
+    expect(statSync(file).size).toBeLessThan(150_000)
+    expect(landing).toContain(file.replace(/^public/, ""))
   })
 })

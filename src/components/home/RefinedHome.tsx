@@ -45,6 +45,8 @@ export function RefinedHome({
   extras,
   onRetryExtras,
   nextStep,
+  belowNextUp,
+  setupRow,
   homeId,
   homeName,
   onSelectHome,
@@ -70,6 +72,11 @@ export function RefinedHome({
   onRetryExtras: () => void
   /** The one next-step card (What's in your home? / This month at your home), placed after Coming up. */
   nextStep?: ReactNode
+  /** One row under Next up: "Add your zip" when the home has none (mock m5). */
+  belowNextUp?: ReactNode
+  /** An empty home after Not now (mock m3): this row stands in Next up's place,
+   *  and only In a pinch follows — no Next up, Coming up or "All quiet". */
+  setupRow?: ReactNode
   cleaningGuides?: DeepCleanGuide[]
   level: UserLevel
   homeId: string | null
@@ -131,6 +138,13 @@ export function RefinedHome({
           <AskField />
           {askStarters.length > 0 && <AskStarters starters={askStarters} />}
         </div>
+        {setupRow ? (
+          <>
+            {setupRow}
+            {homeId && <PinchAndPinned homeId={homeId} tree="phone" />}
+          </>
+        ) : (
+          <>
         {/* Home, next (design/home-next.md, owner 2026-11-21): one task, then
             only what the Tasks tab can't show. Each section hides when it has
             nothing to say, except In a pinch, which is fixed. */}
@@ -145,11 +159,14 @@ export function RefinedHome({
           onComplete={onComplete}
           onSnooze={onSnooze}
         />
+        {belowNextUp}
         <HomeLoadNote extras={extras} onRetry={onRetryExtras} />
         <HeadsUp recalls={notices.recalls} ready={tray.ready} warranties={warranties} extras={extras} />
         <ComingUp tasks={tasks} upcoming={upcoming} forecast={comingUp} extras={extras} />
         {nextStep}
         {homeId && <PinchAndPinned homeId={homeId} tree="phone" />}
+          </>
+        )}
       </div>
     </div>
   )

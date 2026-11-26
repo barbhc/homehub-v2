@@ -72,11 +72,14 @@ describe("the count that drives it", () => {
 })
 
 describe("precedence", () => {
-  it("the profile nag yields to the upkeep prompt", () => {
-    // Both ask for the user's next action. Four profile questions produce no
-    // tasks; a manual does.
-    // showSetup = isNewUser, or the empty-Home card pinned mid-flow (before-friends B3).
-    expect(home).toContain("{!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (")
+  it("there is no profile nag any more: the zip row sits below Next up (seventeen fixes, mock m5)", () => {
+    // "Nothing is rendered above the greeting on Home" and "'Finish your home
+    // profile' is not rendered on Home": the banner is gone, and the one
+    // answer that changes Home — the zip — is asked by a row passed BELOW
+    // Next up (belowNextUp), never placed in Home's own top.
+    expect(home).not.toContain("ProfileCompletionBanner")
+    expect(home).not.toContain("Finish your home profile")
+    expect(home).toContain("belowNextUp={zipRow}")
   })
 
   it("does not tell them to add an item they have already added", () => {

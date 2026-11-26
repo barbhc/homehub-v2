@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore"
+import { arrayUnion, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import {
   PREF_NOTIFICATIONS,
@@ -12,8 +12,11 @@ export const PREF_TOUR_COMPLETED = "tour_completed"
  * this person. Set by hand on the prefs doc; there is no switch in the app.
  */
 export const PREF_DEV_TOOLS = "dev_tools"
-/** Home ids whose "Finish your home profile" banner has been dismissed. */
-export const PREF_PROFILE_BANNER_DISMISSED = "profile_banner_dismissed"
+/** Home ids whose "Add your zip" row on Home has been closed (seventeen fixes,
+ *  mock m5). It replaced "Finish your home profile", whose dismissals lived
+ *  under "profile_banner_dismissed" — a different question, so they are not
+ *  carried over. */
+export const PREF_ZIP_ROW_DISMISSED = "zip_row_dismissed"
 
 // v1's (user_id, preference_key) → preference_value table collapses to a single
 // prefs doc at users/{uid}/private/preferences, with each preference key as a
@@ -45,26 +48,22 @@ export async function setNotificationPrefs(userId: string, prefs: NotificationPr
 }
 
 /**
- * "Finish your home profile" dismissals, stored on the SERVER.
+ * "Add your zip" closes, stored on the SERVER, per home.
  *
- * They lived in localStorage alone, and the owner reported the banner coming
- * back after she dismissed it. Whatever clears that storage — a WebView data
- * reset, a quota failure swallowed by the catch, a reinstall — took the
- * dismissal with it, and the app went back to nagging about something she had
- * already answered. A dismissal is a decision the user made; it should outlive
- * a browser cache.
- *
- * Stored per home, because the banner is per home.
+ * The profile banner before it kept its dismissal in localStorage alone, and
+ * the owner reported it coming back after she dismissed it: whatever clears
+ * that storage (a WebView data reset, a quota failure, a reinstall) took the
+ * dismissal with it. A dismissal is a decision the user made; it should
+ * outlive a browser cache.
  */
-export async function getDismissedProfileBanners(userId: string): Promise<string[]> {
-  const v = await getPreference<unknown>(userId, PREF_PROFILE_BANNER_DISMISSED)
+export async function getDismissedZipRows(userId: string): Promise<string[]> {
+  const v = await getPreference<unknown>(userId, PREF_ZIP_ROW_DISMISSED)
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
 }
 
-export async function dismissProfileBanner(userId: string, homeId: string): Promise<void> {
-  const current = await getDismissedProfileBanners(userId)
-  if (current.includes(homeId)) return
-  await setPreference(userId, PREF_PROFILE_BANNER_DISMISSED, [...current, homeId])
+/** One atomic add (arrayUnion): two closes at once can never drop each other. */
+export async function dismissZipRow(userId: string, homeId: string): Promise<void> {
+  await setPreference(userId, PREF_ZIP_ROW_DISMISSED, arrayUnion(homeId))
 }
 
 /**

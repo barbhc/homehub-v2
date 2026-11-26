@@ -89,10 +89,12 @@ describe("the no-manual card", () => {
   })
 
   // An UNKNOWN kind asks "What is it?" instead (PR C, CareBlock.whatIsIt.test.tsx).
-  it("a kind with no typical care: no rows, today's line, and Add the Manual", () => {
+  // Seventeen fixes, mock m4: such a kind gets "No typical care for this yet…"
+  // and Add Your Own Task beside Add the Manual (CareBlock.whatIsIt.test.tsx).
+  it("a kind with no typical care: no rows, the m4 line, and Add the Manual", () => {
     renderCare(named("Sharp Microwave Drawer"))
     expect(within(card()).getByText("No upkeep yet")).toBeInTheDocument()
-    expect(within(card()).getByText("The manual is where this item's schedule, warranty window and answers come from.")).toBeInTheDocument()
+    expect(within(card()).getByText("No typical care for this yet. Add its manual, or add your own task.")).toBeInTheDocument()
     expect(screen.queryAllByTestId("suggested-card-row")).toHaveLength(0)
     expect(screen.queryByText(/Here's what most/)).toBeNull()
     expect(addManual()).toBeInTheDocument()

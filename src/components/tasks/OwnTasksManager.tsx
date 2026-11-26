@@ -12,8 +12,14 @@
  * Every failure is said where it happened: a list that could not be read is
  * never drawn as empty, a failed add keeps what was typed, a failed delete
  * keeps the row. A late answer for a home already left lands nowhere (H4).
+ *
+ * `forItem` (seventeen fixes, mock m4): opened from an item page's "Add Your
+ * Own Task", the form starts with that item picked. The task is upkeep on that
+ * item (it shows on the item's page), so "Shows in" is not asked; "Whole home
+ * instead" drops the item and the form is the usual one.
  */
 import { useCallback, useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import { Trash2 } from "lucide-react"
 import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
@@ -56,7 +62,11 @@ async function readRoutines(homeId: string): Promise<RoutinesRead> {
 }
 
 /** Adds the task where she said it shows. Returns the failure, or null. */
-async function addOwnTask(homeId: string, title: string, schedule: Schedule, minutes: number | null, showsIn: ShowsIn): Promise<string | null> {
+async function addOwnTask(homeId: string, title: string, schedule: Schedule, minutes: number | null, showsIn: ShowsIn, itemUnitId: string | null): Promise<string | null> {
+  if (itemUnitId) {
+    const res = await addCustomHomeTask(homeId, title, schedule, null, minutes, itemUnitId)
+    return res.error ? res.error.message : null
+  }
   if (showsIn === "cleaning") {
     const res = await saveRoutineTask(homeId, title, schedule, minutes)
     return "error" in res ? res.error : null
@@ -65,7 +75,13 @@ async function addOwnTask(homeId: string, title: string, schedule: Schedule, min
   return res.error ? res.error.message : null
 }
 
-export function OwnTasksManager({ homeId }: { homeId: string }) {
+export function OwnTasksManager({ homeId, forItem = null, onClearItem }: {
+  homeId: string
+  /** The item the task is for, picked by the page it came from. */
+  forItem?: { id: string; name: string } | null
+  /** "Whole home instead": the page drops the item. */
+  onClearItem?: () => void
+}) {
   const [routines, setRoutines] = useState<RoutineTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [newTitle, setNewTitle] = useState("")
@@ -143,7 +159,7 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
     setAdding(true)
     setRoutinesError(null)
     setAdded(null)
-    const failure = await addOwnTask(forHome, title, newSchedule, minutes, showsIn)
+    const failure = await addOwnTask(forHome, title, newSchedule, minutes, showsIn, forItem?.id ?? null)
     if (!isCurrentHome(forHome)) {
       if (failure) console.warn(`[own tasks] could not add a task for home ${forHome}, answered after a switch:`, failure)
       return
@@ -163,7 +179,7 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
     setNewTitle("")
     setNewMinutes("")
     void refreshRoutines()
-  }, [homeId, newTitle, newSchedule, newMinutes, showsIn, adding, isCurrentHome, refreshRoutines])
+  }, [homeId, newTitle, newSchedule, newMinutes, showsIn, adding, isCurrentHome, refreshRoutines, forItem])
 
   const handleDelete = useCallback(
     async (templateId: string) => {
@@ -197,6 +213,18 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
         aria-label="Add your own task"
         onSubmit={(e) => { e.preventDefault(); void handleAdd() }}
       >
+        {forItem && (
+          <div className="flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2" style={{ background: "var(--hh-teal-wash)" }} data-testid="own-task-for-item">
+            <span className="min-w-0 flex-1 text-[0.9375rem] leading-[1.33]" style={{ color: INK }}>
+              For <b className="[overflow-wrap:anywhere]">{forItem.name}</b>
+            </span>
+            {onClearItem && (
+              <button type="button" onClick={onClearItem} className="min-h-11 shrink-0 text-[0.875rem] font-semibold" style={{ color: TEAL }}>
+                Whole home instead
+              </button>
+            )}
+          </div>
+        )}
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
@@ -232,7 +260,7 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
             />
           </label>
         </div>
-        <div className="flex flex-col gap-1">
+        {!forItem && <div className="flex flex-col gap-1">
           <span id="own-task-shows-in" className={label} style={{ color: SUB }}>Shows in</span>
           <div role="radiogroup" aria-labelledby="own-task-shows-in" className="flex flex-wrap gap-2">
             {SHOWS_IN.map((o) => {
@@ -252,7 +280,7 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
               )
             })}
           </div>
-        </div>
+        </div>}
         <button
           type="submit"
           disabled={!newTitle.trim() || adding}
@@ -264,7 +292,14 @@ export function OwnTasksManager({ homeId }: { homeId: string }) {
         {routinesError && <InlineError>{routinesError}</InlineError>}
         {added && (
           <div role="status" className="text-[0.8125rem] leading-[1.38]" style={{ color: SUB }}>
-            Added <b style={{ color: INK }}>{added}</b> to your Tasks.
+            {forItem ? (
+              <>
+                Added <b style={{ color: INK }}>{added}</b> to {forItem.name}.{" "}
+                <Link to={`/inventory/${forItem.id}`} className="font-semibold underline underline-offset-2" style={{ color: TEAL }}>See it there</Link>
+              </>
+            ) : (
+              <>Added <b style={{ color: INK }}>{added}</b> to your Tasks.</>
+            )}
           </div>
         )}
       </form>

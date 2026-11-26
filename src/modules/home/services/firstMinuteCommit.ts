@@ -14,11 +14,14 @@
  *   3. Write the profile the steps collected: zip, area, home type, answers.
  *   4. Add each picked task, skipping any a failed attempt already added.
  */
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/integrations/firebase"
 import { createHome, getPrimaryHome } from "./homeService"
-import { getHomeProfile, upsertHomeProfile } from "./homeProfileService"
+import { getHomeProfile, upsertHomeProfile, type HomeProfile } from "./homeProfileService"
 import type { DraftProfile, PendingTask } from "./firstMinuteDraft"
 import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
-import { entryByKey } from "../../../../shared/care/library"
+import { entryByKey, type ExistingTask } from "../../../../shared/care/library"
+import { assertServed } from "@/lib/assertServed"
 import { track } from "@/lib/analytics"
 
 /** D1a: the home is named for her; she renames it from the switcher. */
@@ -123,4 +126,69 @@ async function addTasks(homeId: string, tasks: PendingTask[], already: string[])
       ? "Couldn’t add your tasks. Check your connection and try again."
       : `Couldn’t add ${failed.map((t) => `“${t}”`).join(" or ")}. The others were added. Try again for the rest.`
   return { addedKeys, failed, message }
+}
+
+// ── An existing home's zip (seventeen fixes, mock m5) ─────────────────────────
+//
+// Home's "Add your zip" row runs the same three screens for a SIGNED-IN person
+// whose home already exists. No home is created and no account is asked for:
+// the steps' answers go onto THIS home's profile, and only the tasks she picks
+// are added — the same writes as above, through the same helpers.
+
+export type HomeForZip = { profile: HomeProfile; existing: ExistingTask[] }
+
+/**
+ * The home's profile and its tasks, read from the server. The list it feeds
+ * offers only what the home does not already have, so an offline cache-miss
+ * that came back EMPTY would offer every task again — that read is refused
+ * (assertServed), never believed (memory: the fromCache trap).
+ */
+export async function readHomeForZip(homeId: string): Promise<{ data: HomeForZip; error: null } | { data: null; error: string }> {
+  const profile = await getHomeProfile(homeId)
+  if (profile.error || !profile.data) {
+    return { data: null, error: profile.error?.message ?? "Couldn't read your home." }
+  }
+  try {
+    const snap = await getDocs(collection(db, `homes/${homeId}/taskTemplates`))
+    assertServed(snap, "tasks")
+    const existing: ExistingTask[] = []
+    for (const d of snap.docs) {
+      const t = d.data()
+      if (t.deletedAt != null || t.isActive === false) continue
+      const schedule = t.schedule as { scheduleType?: unknown } | null | undefined
+      existing.push({
+        title: typeof t.title === "string" ? t.title : "",
+        scheduleType: typeof schedule?.scheduleType === "string" ? schedule.scheduleType : null,
+      })
+    }
+    return { data: { profile: profile.data, existing }, error: null }
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Couldn't read your tasks." }
+  }
+}
+
+/**
+ * Save the zip screens' answers to an existing home, then add the picked
+ * tasks. What the home already answered is not taken back: a home type it
+ * already has, and the date its profile was first completed, are left as
+ * they are. Safe to run again — tasks already added (`addedKeys`) are skipped.
+ */
+export async function saveZipToHome(
+  homeId: string,
+  current: HomeProfile,
+  patch: DraftProfile,
+  tasks: PendingTask[],
+  addedKeys: string[],
+): Promise<CommitResult> {
+  const write: DraftProfile = { ...patch }
+  if (current.completed_at) delete write.completed_at
+  if (current.home_type) delete write.home_type
+  const profile = await upsertHomeProfile(homeId, write)
+  if (profile.error) {
+    console.warn(`[add zip] could not save the profile (home ${homeId}):`, profile.error.message)
+    return { kind: "failed", message: "Couldn't save your zip. Check your connection and try again.", createdHomeId: null, addedKeys }
+  }
+  const added = await addTasks(homeId, tasks, addedKeys)
+  if (added.failed.length) return { kind: "failed", message: added.message, createdHomeId: null, addedKeys: added.addedKeys }
+  return { kind: "saved", homeId, addedKeys: added.addedKeys }
 }

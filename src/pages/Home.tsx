@@ -25,7 +25,8 @@ import { useReminderAsk } from "@/hooks/useReminderAsk"
 import { askStartersForHome } from "../../shared/care/dayOne"
 import { localToday } from "../../shared/dates/calendar"
 import { DesktopHome } from "@/components/home/DesktopHome"
-import { ProfileCompletionBanner } from "@/components/dashboard/ProfileCompletionBanner"
+import { ZipRow } from "@/components/home/ZipRow"
+import { collapsedKey, readLocal } from "@/components/home/dayOneData"
 import { PushOptInNudge } from "@/components/dashboard/PushOptInNudge"
 import { HomeSkeleton } from "@/components/home/HomeSkeleton"
 
@@ -74,6 +75,24 @@ function NoUpkeepYetHero() {
   )
 }
 
+/** The empty-Home card in its one-row stage, standing where Next up goes. */
+function SetupRow({ homeId, onCollapsedChange, onEngaged, onFinished }: {
+  homeId: string
+  onCollapsedChange: (collapsed: boolean) => void
+  onEngaged: () => void
+  onFinished: () => void
+}) {
+  return (
+    <WhatsInYourHomeCard
+      key={homeId}
+      homeId={homeId}
+      onEngaged={onEngaged}
+      onFinished={onFinished}
+      onCollapsedChange={onCollapsedChange}
+    />
+  )
+}
+
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -93,7 +112,15 @@ export default function Home() {
   // for the normal Home while she still has rows to add — the same reason
   // NextStepCard has appliancesPinned. Reset when the home changes.
   const [setupPinned, setSetupPinned] = useState(false)
-  if (useDepsChanged([homeId]) && setupPinned) setSetupPinned(false)
+  // The empty-Home card shrunk to its one row (Not now): Home then shows its
+  // own top around that row (seventeen fixes, mock m3). Read from the card's
+  // per-device flag so a reload keeps the layout; the card reports changes.
+  const [setupCollapsed, setSetupCollapsed] = useState(() => !!homeId && readLocal(collapsedKey(homeId)) === "1")
+  if (useDepsChanged([homeId])) {
+    if (setupPinned) setSetupPinned(false)
+    const collapsedHere = !!homeId && readLocal(collapsedKey(homeId)) === "1"
+    if (collapsedHere !== setupCollapsed) setSetupCollapsed(collapsedHere)
+  }
 
   const {
     tasks: dashTasks,
@@ -111,6 +138,10 @@ export default function Home() {
   const askFirst = homeProfile?.preferred_mode === "ask_first"
   const profileIncomplete =
     !profileError && (homeProfile === null || homeProfile?.completed_at === null)
+  // The zip row (mock m5) replaces the profile-completion banner: the zip is the
+  // one answer that changes what Homehub suggests. Only once the profile has
+  // been READ and has no zip — a failed or pending read asks nothing.
+  const zipMissing = !profileError && !!homeProfile && !homeProfile.zip
   useFeatureTour()
   // Flips true if the first paint is still a skeleton after SKELETON_PATIENCE_MS.
   const [skeletonSlow, setSkeletonSlow] = useState(false)
@@ -244,6 +275,10 @@ export default function Home() {
   // filling from that card. Every JSX gate below reads this; the derived
   // values keep reading isNewUser.
   const showSetup = isNewUser || setupPinned
+  // Not now on the card (mock m3): an empty home that is not mid-setup shows
+  // Home's own top — greeting, Ask, the row where Next up goes, In a pinch —
+  // rather than one row on a blank page.
+  const setupRowOnly = showSetup && setupCollapsed && !setupPinned
   const tasksBeforeItems = noItems && !isNewUser
   // HH-80: the state between "no items" and "a working home". The owner added
   // an item, its manual search offered her two wrong documents (HH-73), so it
@@ -256,7 +291,7 @@ export default function Home() {
   // question, then the label. Keyed by home so a switch starts it fresh.
   // And two starter questions under Ask (release B): Ask answers a home with
   // nothing to read from general know-how now, so a first question works.
-  const starters = !isNewUser && (stats?.totalItems ?? 0) < 3
+  const starters = (!isNewUser || setupRowOnly) && (stats?.totalItems ?? 0) < 3
     ? askStartersForHome(homeProfile, localToday())
     : []
   const earlyCard = !isNewUser && !hasItemsNoUpkeep && homeId && (stats?.totalItems ?? 0) < 3
@@ -268,6 +303,8 @@ export default function Home() {
     ? <MonthlyRefreshCard key={`m-${homeId}`} homeId={homeId} profile={homeProfile} fallback={earlyCard}
         onChanged={() => { void refresh(); void refreshProfile() }} />
     : null
+
+  const zipRow = zipMissing && homeId && user?.id ? <ZipRow key={homeId} homeId={homeId} userId={user.id} /> : null
 
   return (
     <div className="flex flex-col pb-8">
@@ -294,7 +331,7 @@ export default function Home() {
         {user?.id && <WhatsNewBanner userId={user.id} />}
 
         {/* ── New-user empty state: "What's in your home?" (before-friends mock 1) ── */}
-        {showSetup && (
+        {showSetup && !setupRowOnly && (
           <div className="mt-2 mb-4">
             {/* The greeting header is replaced in this branch, so the pill
                 stands in for it — under the same rule (showHomeName). Adding a
@@ -327,30 +364,72 @@ export default function Home() {
                   setSetupPinned(false)
                   void refresh()
                 }}
+                onCollapsedChange={setSetupCollapsed}
               />
             )}
           </div>
         )}
 
-        {/* The profile banner yields to the upkeep prompt. Both are asking for
-            the user's next action, and answering four profile questions does
-            not get them a single task — adding a manual does. */}
-        {!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && profileIncomplete && homeId && (
-          <ProfileCompletionBanner homeId={homeId} />
-        )}
+        {/* The profile-completion banner is gone from Home (seventeen fixes, mock
+            m5): nothing sits above the greeting for it. Its one question that
+            changes Home — the zip — is the row below Next up (zipRow). */}
 
         {!showSetup && hasItemsNoUpkeep && <NoUpkeepYetHero />}
 
         {/* Push opt-in nudge: self-gates on browser support + existing
             subscription + dismissal, so it's safe to always render when the
-            user has a home. Only one opt-in banner shows at a time — if the
-            profile banner is still visible, skip the push nudge to avoid
-            stacking. */}
+            user has a home. It still waits for a completed profile, as it did
+            while the profile banner stood here, so removing that banner does
+            not put a new card above the greeting. */}
         {!showSetup && !hasItemsNoUpkeep && !tasksBeforeItems && !profileIncomplete && user?.id && homeId && (
           <PushOptInNudge userId={user.id} homeId={homeId} />
         )}
 
         {!showSetup && askFirst && <AskFirstHero />}
+
+        {setupRowOnly && homeId && (
+          <>
+            <div className="lg:hidden -mx-4">
+              <div className="mx-auto w-full max-w-[460px]">
+                <RefinedHome
+                  homeName={showHomeName ? (home?.name ?? null) : null}
+                  onSelectHome={() => setSwitcherOpen(true)}
+                  tasks={[]}
+                  upcoming={[]}
+                  askStarters={starters}
+                  warranties={[]}
+                  notices={notices}
+                  extras={extras}
+                  onRetryExtras={() => void refresh()}
+                  level={level}
+                  homeId={homeId}
+                  completingId={null}
+                  onComplete={handleMarkComplete}
+                  onSnooze={handleSnooze}
+                  setupRow={<SetupRow homeId={homeId} onCollapsedChange={setSetupCollapsed} onEngaged={() => setSetupPinned(true)} onFinished={() => { setSetupPinned(false); void refresh() }} />}
+                />
+              </div>
+            </div>
+            <div className="hidden lg:block">
+              <DesktopHome
+                tasks={[]}
+                warranties={[]}
+                notices={notices}
+                extras={extras}
+                onRetryExtras={() => void refresh()}
+                upcoming={[]}
+                askStarters={starters}
+                cleaningGuides={[]}
+                level={level}
+                homeId={homeId}
+                completingId={null}
+                onComplete={handleMarkComplete}
+                onSnooze={handleSnooze}
+                setupRow={<SetupRow homeId={homeId} onCollapsedChange={setSetupCollapsed} onEngaged={() => setSetupPinned(true)} onFinished={() => { setSetupPinned(false); void refresh() }} />}
+              />
+            </div>
+          </>
+        )}
 
         {!showSetup && (
           <>
@@ -370,6 +449,7 @@ export default function Home() {
               extras={extras}
               onRetryExtras={() => void refresh()}
               nextStep={nextStep}
+              belowNextUp={zipRow}
               cleaningGuides={cleaningGuides}
               level={level}
               homeId={homeId || null}
@@ -401,6 +481,7 @@ export default function Home() {
             onComplete={handleMarkComplete}
             onSnooze={handleSnooze}
             nextStep={nextStep ?? undefined}
+            belowNextUp={zipRow}
           />
         </div>
           </>

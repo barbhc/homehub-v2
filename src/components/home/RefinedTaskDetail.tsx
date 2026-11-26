@@ -11,7 +11,7 @@ import {
   BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
 } from "lucide-react"
 import {
-  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder,
+  getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder, unsnoozeTaskInstance,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
@@ -26,6 +26,8 @@ import { getManualsByItem } from "@/modules/knowledge"
 import { resolveManualUrl } from "@/hooks/useManualManagement"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { usePageBar } from "@/hooks/usePageBar"
+import { useSWRConfig } from "swr"
+import { weekAgendaKey } from "@/hooks/useWeekAgenda"
 import { InlineError, LoadErrorState } from "@/components/layout/LoadStates"
 import { doneFailedMessage } from "./tasks/shared"
 import { dens, dueLabel, priorityTier } from "@/lib/redesign/tokens"
@@ -33,6 +35,7 @@ import type { ScheduleType } from "@/integrations/types"
 import { usePushMode } from "@/hooks/usePushMode"
 import { reminderSwitch } from "@/lib/reminderSwitch"
 import { addDays, diffDays, localToday } from "../../../shared/dates/calendar"
+import { asListedToday, isSnoozedAway } from "../../../shared/tasks/snooze"
 
 const INK = "var(--hh-ink)", SUB = "var(--hh-sub)", TEAL = "var(--hh-teal)", TEALD = "var(--hh-teal-deep)", FAINT = "var(--hh-faint)", BG = "var(--hh-bg)"
 
@@ -93,6 +96,11 @@ export function RefinedTaskDetail({
    *  it used to show "Done" whatever the callable answered. */
   const [doneError, setDoneError] = useState<string | null>(null)
   const [reminderError, setReminderError] = useState<string | null>(null)
+  /** Unsnooze in flight, and what a refused one said. The page stays snoozed
+   *  until the write lands — never "back on your list" on a write that failed. */
+  const [unsnoozing, setUnsnoozing] = useState(false)
+  const [unsnoozeError, setUnsnoozeError] = useState<string | null>(null)
+  const { mutate: mutateKey } = useSWRConfig()
   /** An assignment the server refused — rolled back and said beside the control. */
   const [assignError, setAssignError] = useState<string | null>(null)
   /** Who the server last confirmed (load, or a landed assignment). */
@@ -162,6 +170,14 @@ export function RefinedTaskDetail({
   const dockOpen = manualOpen && !!manualUrl
 
   const recurring = !!detail?.schedule && !NON_RECURRING.includes(detail.schedule.scheduleType)
+  // Snooze (seventeen fixes, mock m1): the ONE rule Home, Tasks and the push
+  // sweep read (shared/tasks/snooze.ts). While the snooze holds, the status
+  // line and the reminder say so and Unsnooze sits beside Mark done. Once it
+  // ends the page reads as any open task, due the date the lists show (the
+  // later of its due date and the snooze's end).
+  const today = localToday()
+  const snoozedUntil = detail && isSnoozedAway(detail, today) ? detail.snoozedUntil : null
+  const dueDate = detail ? (asListedToday(detail, today)?.dueDate ?? detail.dueDate) : ""
   // The strip used to read "Next: Sep 2" for a monthly task — precision the
   // schedule doesn't have. A window says what is true; a real deadline keeps
   // its date. See design/due-windows.md.
@@ -169,25 +185,26 @@ export function RefinedTaskDetail({
     if (!detail) return ""
     const st = detail.schedule?.scheduleType ?? null
     const kind = dueKindOf({ title: detail.title, scheduleType: st })
-    if (kind === "deadline") return dueLabel(dueDaysFromDate(detail.dueDate))
-    if (detail.neverCompleted && dueDaysFromDate(detail.dueDate) < 0) return "Start anytime"
-    return windowPhrase(detail.dueDate, st, { kind })
+    if (snoozedUntil) return `Snoozed until ${fmt(snoozedUntil)}`
+    if (kind === "deadline") return dueLabel(dueDaysFromDate(dueDate))
+    if (detail.neverCompleted && dueDaysFromDate(dueDate) < 0) return "Start anytime"
+    return windowPhrase(dueDate, st, { kind })
   })()
   // The status line's colour (src/lib/taskCard.ts): a real deadline is ink,
   // a passed one clay; a window stays grey.
   const headerTone: WhenTone = (() => {
     if (!detail) return "plain"
     const kind = dueKindOf({ title: detail.title, scheduleType: detail.schedule?.scheduleType ?? null })
-    if (kind !== "deadline") return "plain"
-    return dueDaysFromDate(detail.dueDate) < 0 ? "attention" : "date"
+    if (kind !== "deadline" || snoozedUntil) return "plain"
+    return dueDaysFromDate(dueDate) < 0 ? "attention" : "date"
   })()
 
   const nextLabel = (() => {
     if (!detail) return ""
     const st = detail.schedule?.scheduleType ?? null
     const kind = dueKindOf({ title: detail.title, scheduleType: st })
-    if (kind === "deadline") return `By ${fmt(detail.dueDate)}`
-    const w = dueWindow(detail.dueDate, st)
+    if (kind === "deadline") return `By ${fmt(dueDate)}`
+    const w = dueWindow(dueDate, st)
     return `Window: ${shortDate(w.start)} – ${shortDate(w.end)}`
   })()
 
@@ -230,6 +247,26 @@ export function RefinedTaskDetail({
       setReminderError(res.error.message)
     }
   }, [homeId, detail])
+
+  /** Unsnooze: the same write as the Undo on Home and Tasks — the occurrence
+   *  goes back to scheduled with its own due date, which the snooze never
+   *  touched. Not optimistic: on a refusal the page stays snoozed and says so. */
+  const unsnooze = useCallback(async () => {
+    if (!homeId || !detail || unsnoozing) return
+    setUnsnoozing(true)
+    setUnsnoozeError(null)
+    const res = await unsnoozeTaskInstance(homeId, detail.taskInstanceId)
+    setUnsnoozing(false)
+    if (!res.success) {
+      console.warn(`[task] could not unsnooze ${detail.taskInstanceId} (home ${homeId}):`, res.error)
+      setUnsnoozeError(res.reason ? res.error : "Couldn't unsnooze this task. Check your connection and try again.")
+      return
+    }
+    setDetail((x) => (x ? { ...x, status: "scheduled", snoozedUntil: null } : x))
+    // Back on Home and Tasks: re-read their lists, as Home's own Undo does
+    // (useTaskActions → onUnsnoozed → refresh), rather than wait for a revalidate.
+    void Promise.all([`dashboard:core:${homeId}`, `dashboard:extras:${homeId}`, weekAgendaKey(homeId)].map((k) => mutateKey(k)))
+  }, [homeId, detail, unsnoozing, mutateKey])
 
   if (loading) return <div className="flex min-h-full items-center justify-center text-[0.875rem]" style={{ background: BG, color: SUB }}>Loading…</div>
   if (!detail && loadFailed) return (
@@ -279,8 +316,11 @@ export function RefinedTaskDetail({
     remindEnabled: detail.remindEnabled,
     priorityTier: detail.tier,
     isDeadline,
-    lapsedSafety: !!detail.isSafetyCritical && safetyPhrase(detail.dueDate, reminderScheduleType) !== null,
+    lapsedSafety: !!detail.isSafetyCritical && safetyPhrase(dueDate, reminderScheduleType) !== null,
   })
+  // A snoozed task reminds no one until the snooze ends (shared/tasks/snooze.ts:
+  // "off the list everywhere, reminders included"), so the line says that.
+  const reminderLine = snoozedUntil && reminder.on ? `Paused until ${fmt(snoozedUntil)}` : reminder.line
   // Recurring tasks, and deadlines: a deadline is a one-off, but the morning
   // push names it on its day — and in "Just my list" only a deadline switched
   // On does, so this is the one place that choice can be made (owner,
@@ -297,7 +337,7 @@ export function RefinedTaskDetail({
         />
         <span className="min-w-0 flex-1">
           <span className="block text-[0.84375rem] font-semibold" style={{ color: INK }}>Remind me when it&apos;s due</span>
-          <span className="block text-[0.75rem]" style={{ color: SUB }}>{reminder.line}</span>
+          <span className="block text-[0.75rem]" style={{ color: SUB }} data-testid="reminder-line">{reminderLine}</span>
         </span>
         {reminder.on && (
           <BellRingIcon className="size-4 shrink-0" style={{ color: TEAL }} />
@@ -311,9 +351,37 @@ export function RefinedTaskDetail({
 
   // Beside Mark done in BOTH lanes (desktop rail, phone bar) — the same
   // reason as the reminder control above: one lane is always invisible.
-  const doneErrorNote = doneError ? (
-    <p role="alert" className="px-1 text-[0.75rem] font-semibold" style={{ color: "var(--hh-clay)" }}>{doneError}</p>
+  const actionErr = doneError ?? unsnoozeError
+  const doneErrorNote = actionErr ? (
+    <p role="alert" className="px-1 text-[0.75rem] font-semibold" style={{ color: "var(--hh-clay)" }}>{actionErr}</p>
   ) : null
+
+  // Mark done — the page's one filled button — and, while snoozed, Unsnooze
+  // beside it at the same size, outlined (mock m1). Both lanes render this.
+  const actionButtons = (big: boolean) => {
+    const pad = big ? "py-4 text-[1rem]" : "py-3.5 text-[0.9375rem]"
+    const markDone = (
+      <button onClick={() => setSheetOpen(true)} className={`flex w-full items-center justify-center gap-2 rounded-[14px] font-bold text-white ${pad}`} style={{ background: "var(--hh-teal-fill)" }}>
+        <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
+      </button>
+    )
+    if (!snoozedUntil) return markDone
+    return (
+      <div className="grid grid-cols-2 gap-2.5">
+        {markDone}
+        <button
+          type="button"
+          onClick={() => void unsnooze()}
+          disabled={unsnoozing}
+          aria-busy={unsnoozing}
+          className={`flex w-full items-center justify-center rounded-[14px] border font-bold disabled:opacity-60 ${pad}`}
+          style={{ borderColor: "var(--hh-line2)", background: "var(--hh-surface)", color: INK }}
+        >
+          Unsnooze
+        </button>
+      </div>
+    )
+  }
 
   const assignControl = (
     <>
@@ -502,9 +570,7 @@ export function RefinedTaskDetail({
             </div>
           ) : (
             <div className="rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]" style={{ background: "var(--hh-surface)" }}>
-              <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-3.5 text-[0.9375rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
-                <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
-              </button>
+              {actionButtons(false)}
               {doneErrorNote && <div className="mt-2">{doneErrorNote}</div>}
             </div>
           )}
@@ -549,9 +615,7 @@ export function RefinedTaskDetail({
         <div ref={pageBarRef} data-testid="task-action-bar" className="hh-frost fixed inset-x-0 bottom-[var(--hh-tabbar-clear)] z-40 border-t border-[var(--hh-line)] pb-3 pt-3 backdrop-blur-xl md:pb-[calc(12px+env(safe-area-inset-bottom))] lg:hidden" style={{ background: "color-mix(in srgb, var(--hh-surface) 95%, transparent)" }}>
           <div className="mx-auto w-full max-w-[460px]" style={{ paddingInline: d.pad }}>
             {doneErrorNote && <div className="mb-2">{doneErrorNote}</div>}
-            <button onClick={() => setSheetOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[14px] py-4 text-[1rem] font-bold text-white" style={{ background: "var(--hh-teal-fill)" }}>
-              <CheckIcon className="size-[18px]" strokeWidth={2.6} /> Mark done
-            </button>
+            {actionButtons(true)}
           </div>
         </div>
       )}

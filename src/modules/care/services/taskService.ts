@@ -763,6 +763,11 @@ export type TaskDetail = {
   description: string | null
   estimatedMinutes: number | null
   dueDate: string
+  /** The occurrence's status and snooze, as stored. The page reads them through
+   *  shared/tasks/snooze.ts — the one rule Home, Tasks and the push sweep use —
+   *  so it can say "Snoozed until …" instead of a due window it isn't on. */
+  status: string
+  snoozedUntil: string | null
   assignedTo: string | null
   notes: string | null
   /** Structured how-to steps from the `steps` column when present; null when the
@@ -882,6 +887,8 @@ export async function getTaskDetail(
         description: typeof tmpl?.description === "string" ? tmpl.description : null,
         estimatedMinutes: tmpl?.estimatedMinutes ?? inst.estimatedMinutes ?? null,
         dueDate: inst.dueDate ?? "",
+        status: typeof inst.status === "string" ? inst.status : "scheduled",
+        snoozedUntil: typeof inst.snoozedUntil === "string" ? inst.snoozedUntil : null,
         assignedTo: inst.assignedTo ?? null,
         notes: tmpl?.instructionsOverride ?? null,
         steps,

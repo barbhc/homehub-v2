@@ -84,6 +84,8 @@ const SWR_CONFIG = { fallback: readPersistedSwrFallback() }
 const Privacy = lazyWithRetry(() => import("@/pages/legal/Privacy"))
 const Terms = lazyWithRetry(() => import("@/pages/legal/Terms"))
 const FirstMinute = lazyWithRetry(() => import("@/pages/FirstMinute"))
+// Home's "Add your zip" row: the same screens for an existing home (seventeen fixes, mock m5).
+const ZipForHome = lazyWithRetry(() => import("@/pages/FirstMinute").then((m) => ({ default: m.ZipForHome })))
 const Home = lazyWithRetry(() => import("@/pages/Home"))
 const Inventory = lazyWithRetry(() => import("@/pages/Inventory"))
 // The add-item flow's one door (docs/add-item-flow.md) — the only page that
@@ -169,6 +171,10 @@ function App() {
                   The route stays so existing links and the profile step keep
                   working; it now hands off to the real flow. */}
               <Route path="/onboarding/inventory" element={<Navigate to="/inventory/add" replace />} />
+              {/* Home → "Add your zip": the first minute's screens, full screen like
+                  the first minute itself, for a signed-in person's existing home.
+                  Behind the same gates as Home: it reads and writes that home. */}
+              <Route path="/home/zip" element={<AuthGate><HomeGate><ZipForHome /></HomeGate></AuthGate>} />
               <Route
                 element={
                   <AuthGate>

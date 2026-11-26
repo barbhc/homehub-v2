@@ -5,6 +5,11 @@
  * care." Plus the plan's rules: only kinds with item-level care, the name
  * changes only while it is the "Brand Model" placeholder, and a failed write
  * shows an error and keeps the chips. Rendered, not grepped.
+ *
+ * Seventeen fixes, mock m4 (owner-approved 2026-11-25) narrowed it: the chips
+ * show ONLY while the name is still that placeholder. An item she named
+ * herself ("Kitchen faucet") was asked if it was a dishwasher; it now gets
+ * "No typical care for this yet…" with Add the Manual and Add Your Own Task.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { useState } from "react"
@@ -114,13 +119,6 @@ describe("an item we couldn't identify", () => {
     expect(svc.updateItemUnit).not.toHaveBeenCalled()
   })
 
-  it("with no brand or model: the shorter line", () => {
-    render(<Page initial={unit({ display_name: "Thing in the hall", brand: null, model: null })} />)
-    expect(within(card()).getByText("Pick what this is to see its typical care.")).toBeInTheDocument()
-    expect(screen.queryByText(/from its model/)).toBeNull()
-    expect(chips()).toHaveLength(5)
-  })
-
   it("picking Washer files it, renames the placeholder, and the card shows washers' typical care", async () => {
     const onItemUpdate = vi.fn()
     render(<Page initial={unit({})} onItemUpdate={onItemUpdate} />)
@@ -143,13 +141,6 @@ describe("an item we couldn't identify", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dryer" }))
     await waitFor(() => expect(svc.updateItemUnit).toHaveBeenCalledTimes(1))
     expect(svc.updateItemUnit.mock.calls[0][2]).toMatchObject({ display_name: "Dryer — Kitchen" })
-  })
-
-  it("never renames a name the owner typed", async () => {
-    render(<Page initial={unit({ display_name: "The one upstairs" })} />)
-    fireEvent.click(screen.getByRole("button", { name: "Dryer" }))
-    await waitFor(() => expect(svc.updateItemUnit).toHaveBeenCalledTimes(1))
-    expect(svc.updateItemUnit).toHaveBeenCalledWith("h1", "i1", { item_category: "major_appliance", sub_type: "dryer", category: "dryer" })
   })
 
   it("a failed write shows the error, keeps the chips, and claims nothing", async () => {
@@ -185,5 +176,51 @@ describe("where it does not render (not rendered: toBeNull)", () => {
     expect(screen.queryByTestId("what-is-it")).toBeNull()
     expect(screen.queryByText(/We couldn't tell what this is/)).toBeNull()
     expect(screen.queryByText("Or add the manual for the exact schedule.")).toBeNull()
+  })
+})
+
+describe("an item she named herself (mock m4)", () => {
+  // Quoted must-be-true lines:
+  //  "An item she named herself, of a kind the library doesn't cover, shows no chips and no 'Pick what this is'."
+  //  "An item still named by its brand and model keeps the chips, as shipped on Nov 25."
+  //  "The card reads 'No typical care for this yet. Add its manual, or add your own task.'"
+  //  "Add Your Own Task opens the form with this item picked."
+  //  "Add the Manual is the one filled button."
+  it.each([
+    ["no brand or model", unit({ display_name: "Kitchen faucet", brand: null, model: null })],
+    ["a brand and model, but a name she typed", unit({ display_name: "Kitchen faucet", brand: "Moen", model: "7594ESRS" })],
+  ])("%s: no chips, the m4 line, Add the Manual (filled) over Add Your Own Task (outlined)", (_l, item) => {
+    render(<Page initial={item} />)
+    // Not rendered (toBeNull), not merely hidden.
+    expect(screen.queryByTestId("what-is-it")).toBeNull()
+    expect(screen.queryByText(/Pick what this is/)).toBeNull()
+    expect(screen.queryByText(/Pick one to see/)).toBeNull()
+    expect(within(card()).getByText("No typical care for this yet. Add its manual, or add your own task.")).toBeInTheDocument()
+    const actions = screen.getByTestId("no-typical-care-actions")
+    const manual = within(actions).getByRole("button", { name: "Add the Manual" })
+    const own = within(actions).getByRole("link", { name: "Add Your Own Task" })
+    expect(own).toHaveAttribute("href", "/maintenance/custom?item=i1")
+    // Stacked at one width; the manual is the card's ONE filled control.
+    expect(actions.className).toContain("flex-col")
+    expect(manual.className).toContain("w-full")
+    expect(own.className).toContain("w-full")
+    const filled = [...card().querySelectorAll("button, a")].filter((b) => (b.getAttribute("style") ?? "").includes("--hh-teal-fill"))
+    expect(filled.map((b) => b.textContent)).toEqual(["Add the Manual"])
+    expect(own.className).toMatch(/\bborder\b/)
+  })
+
+  it("an item still called by its brand and model keeps the chips", () => {
+    render(<Page initial={unit({})} />)
+    expect(chips()).toHaveLength(5)
+    expect(screen.queryByText("No typical care for this yet. Add its manual, or add your own task.")).toBeNull()
+    expect(screen.queryByRole("link", { name: "Add Your Own Task" })).toBeNull()
+  })
+
+  it("a kind whose typical care she passed on keeps its sentence (Don't Add stays as it is)", () => {
+    render(<Page initial={unit({ display_name: "Dishwasher", dismissed_care: ["dishwasher.filter"] })} />)
+    expect(screen.queryAllByTestId("suggested-card-row")).toHaveLength(0)
+    expect(screen.queryByText("No typical care for this yet. Add its manual, or add your own task.")).toBeNull()
+    expect(within(card()).getByText("The manual is where this item's schedule, warranty window and answers come from.")).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Add Your Own Task" })).toBeNull()
   })
 })

@@ -38,7 +38,6 @@ vi.mock("@/hooks/useFeatureTour", () => ({ useFeatureTour: () => ({ restartTour:
 vi.mock("@/hooks/useDisplayName", () => ({ useDisplayName: () => ({ firstName: null, fullName: null }) }))
 vi.mock("@/components/dashboard/WhatsNewBanner", () => ({ WhatsNewBanner: () => null }))
 vi.mock("@/components/dashboard/PushOptInNudge", () => ({ PushOptInNudge: () => <div data-testid="push-nudge" /> }))
-vi.mock("@/components/dashboard/ProfileCompletionBanner", () => ({ ProfileCompletionBanner: () => <div data-testid="profile-banner" /> }))
 vi.mock("@/components/home/HomeSwitcherSheet", () => ({ HomeSwitcherSheet: () => null }))
 // The card's own states are WhatsInYourHomeCard.test.tsx's; here, only whether Home places it and honours its pin.
 vi.mock("@/components/home/WhatsInYourHomeCard", () => ({
@@ -94,7 +93,7 @@ describe("Home — tasks before any item", () => {
 
   it("the next step is the only one: no profile banner, no push nudge beside it", () => {
     renderHome()
-    expect(screen.queryByTestId("profile-banner")).toBeNull()
+    expect(screen.queryByText("Finish your home profile")).toBeNull()
     expect(screen.queryByTestId("push-nudge")).toBeNull()
   })
 
@@ -124,7 +123,7 @@ describe("Home — tasks before any item", () => {
     rerender(<MemoryRouter><Home /></MemoryRouter>)
     expect(screen.getByTestId("empty-home-card")).toBeInTheDocument()
     expect(screen.queryByTestId("next-up-title")).toBeNull()
-    expect(screen.queryByTestId("profile-banner")).toBeNull()
+    expect(screen.queryByText("Finish your home profile")).toBeNull()
     expect(screen.queryByTestId("push-nudge")).toBeNull()
     // Done: the pin lets go, and the normal Home renders.
     fireEvent.click(screen.getByRole("button", { name: "stub: finished" }))

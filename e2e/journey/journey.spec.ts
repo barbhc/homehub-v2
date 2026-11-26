@@ -257,6 +257,8 @@ test.describe("journey walks", () => {
     await expect(page.getByTestId("snap-label-card")).toHaveCount(0)
     await expect(page.getByTestId("appliances-card")).toHaveCount(0)
     await expect(page.getByText("Finish your home profile")).toHaveCount(0)
+    // The first minute saved a zip, so Home's zip row (mock m5) is not rendered.
+    await expect(page.getByTestId("zip-row")).toHaveCount(0)
     await snap(page, "J1", "home-after-first-item", "Home after the first item: This week with the first minute's tasks; the appliance and label cards gone (one question about the home instead); no profile nag",
       week)
   })
@@ -301,14 +303,27 @@ test.describe("journey walks", () => {
     await snap(page, "J1", "empty-home-pick", "Empty Home after Not now on the starter list: 'What's in your home?' — Safety (Smoke alarms, Carbon monoxide (CO) alarms, Fire extinguisher), Heating and water, Appliances with More…; See Suggested Care disabled; Add My Exact Models outlined; Not now — no 'Let's set up your home', no monthly card",
       card)
 
-    // Not now: one line in the card's place, kept across a reload; a tap brings the card back.
+    // Not now (seventeen fixes, mock m3): Home's own top around the one row —
+    // the greeting and date, Ask with its starters, the row in Next up's
+    // place, then In a pinch. Kept across a reload; a tap brings the card back.
     await card.getByRole("button", { name: "Not now" }).click()
     const collapsed = page.getByTestId("empty-home-collapsed").filter(visible).first()
     await expect(collapsed).toContainText("Tell us what's in your home")
     await expect(collapsed).toContainText("You can add a model or manual anytime in Items.")
     await expect(page.getByTestId("empty-home-card")).toHaveCount(0)
-    await snap(page, "J1", "empty-home-collapsed", "Not now: only the one-line row 'Tell us what's in your home' with 'You can add a model or manual anytime in Items.' and a chevron; the full card is gone",
-      collapsed)
+    await expect(page.getByText(/^Good (morning|afternoon|evening)/).filter(visible).first()).toBeVisible()
+    await expect(page.getByPlaceholder("Ask about your home…").filter(visible).first()).toBeVisible()
+    await expect(page.getByTestId("ask-starters").filter(visible).first()).toBeVisible()
+    await expect(page.getByTestId("in-a-pinch").filter(visible).first()).toBeVisible({ timeout: 20_000 })
+    // Not rendered at all: Next up, Coming up, All quiet, the profile banner.
+    await expect(page.getByTestId("next-up")).toHaveCount(0)
+    await expect(page.getByText("Coming up", { exact: true })).toHaveCount(0)
+    await expect(page.getByText(/All quiet/)).toHaveCount(0)
+    await expect(page.getByText("Finish your home profile")).toHaveCount(0)
+    // The tour still waits: the row halts it (data-tour-halt), well past its ~600 ms start.
+    await page.waitForTimeout(2_500)
+    await expect(page.locator(".homehub-tour-popover")).toHaveCount(0)
+    await snap(page, "J1", "empty-home-collapsed", "Not now: the greeting and date, Ask with two starter chips, then the row 'Tell us what's in your home' ('You can add a model or manual anytime in Items.', chevron) where Next up goes, then In a pinch; no Next up, Coming up, All quiet or profile banner; no tour")
     await page.reload()
     await expect(page.getByTestId("empty-home-collapsed").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     await page.getByTestId("empty-home-collapsed").filter(visible).first().getByRole("button").click()
