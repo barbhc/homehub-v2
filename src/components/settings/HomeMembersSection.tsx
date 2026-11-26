@@ -3,7 +3,7 @@ import { useDepsChanged } from "@/hooks/useDepsChanged"
 import { useIsCurrent } from "@/hooks/useIsCurrent"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
-import { Check, Copy, Link2, Loader2, Trash2, UserPlus } from "lucide-react"
+import { Check, Copy, Link2, Loader2, ShareIcon, Trash2, UserIcon, UserPlus } from "lucide-react"
 import { SectionCard } from "@/components/layout"
 import { CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ import {
   type HomeInvite,
   type HomeMember,
 } from "@/modules/home"
+import { personInitials, personLabel } from "@/lib/personName"
 
 type Props = {
   homeId: string
@@ -69,16 +70,16 @@ async function readAccess(homeId: string): Promise<AccessRead> {
   }
 }
 
-function initials(name: string | null | undefined): string {
-  if (!name) return "?"
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
+const DAY_MS = 1000 * 60 * 60 * 24
+
+/** Whole days until an invite expires, counted from `now` (never below 0). */
+function daysLeft(expiresAt: string, now: number): number {
+  return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now) / DAY_MS))
 }
+
+/** The plain words for a refused copy. The link is shown beside it (see
+ *  `manualToken`), so "press and hold" points at something on screen. */
+const COPY_REFUSED = "Couldn't copy. Press and hold the link to copy it."
 
 export function HomeMembersSection({ homeId }: Props) {
   const { user } = useAuth()
@@ -89,6 +90,10 @@ export function HomeMembersSection({ homeId }: Props) {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  /** The invite just made on this screen — it gets the "ready" line. */
+  const [freshToken, setFreshToken] = useState<string | null>(null)
+  /** An invite whose copy was refused: its link is shown to press and hold. */
+  const [manualToken, setManualToken] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<HomeMember | null>(null)
   const [removing, setRemoving] = useState(false)
   // Setting your name lived only at the very bottom of Settings, so the prompt
@@ -165,24 +170,55 @@ export function HomeMembersSection({ homeId }: Props) {
     setInvites((prev) => [res.data!, ...prev])
     // The new invite's countdown starts now, not at the last list read.
     setReadAt(Date.now())
-    // Auto-copy the link. A clipboard refusal (Safari without a user gesture,
-    // permissions policy) must not read as a failed invite — the invite exists
-    // and its link is on screen either way.
-    try {
-      await navigator.clipboard.writeText(buildInviteUrl(res.data.token))
-      setCopiedToken(res.data.token)
-      setTimeout(() => setCopiedToken(null), 2000)
-    } catch {
-      setActionError("Invite created, but copying the link failed — use Copy below.")
-    }
+    // No automatic copy (seventeen fixes, 2026-11-25). Safari allows a
+    // clipboard write only DURING a tap, and this runs after the server
+    // answered — so on an iPhone the old auto-copy failed every time and the
+    // first thing a new invite said was "copying the link failed". The invite
+    // says it is ready; Share Link and Copy below are the taps that send it.
+    setFreshToken(res.data.token)
   }, [homeId, userId])
 
-  const handleCopyLink = useCallback(async (token: string) => {
-    const url = buildInviteUrl(token)
-    await navigator.clipboard.writeText(url)
-    setCopiedToken(token)
-    setTimeout(() => setCopiedToken(null), 2000)
+  // Copy runs INSIDE the tap: writeText is the first thing the handler calls,
+  // before any await, which is what Safari's user-activation rule needs.
+  const handleCopyLink = useCallback((token: string): Promise<void> => {
+    setActionError(null)
+    let write: Promise<void>
+    try {
+      write = navigator.clipboard.writeText(buildInviteUrl(token))
+    } catch (e) {
+      // No clipboard at all (an insecure context) throws synchronously.
+      write = Promise.reject(e)
+    }
+    return write.then(
+      () => {
+        setManualToken(null)
+        setCopiedToken(token)
+        setTimeout(() => setCopiedToken(null), 2000)
+      },
+      (e: unknown) => {
+        console.warn("[members] the clipboard refused the invite link:", e instanceof Error ? e.message : e)
+        setManualToken(token)
+        setActionError(COPY_REFUSED)
+      },
+    )
   }, [])
+
+  // Share Link: the system share sheet where there is one (iPhone Safari and
+  // the iOS shell's WebView both have navigator.share). Without it, or when it
+  // fails for any reason other than the person closing the sheet, copy.
+  const handleShareLink = useCallback(async (token: string) => {
+    setActionError(null)
+    const share = typeof navigator.share === "function" ? navigator.share.bind(navigator) : null
+    if (!share) return handleCopyLink(token)
+    try {
+      await share({ title: "Join my home on Homehub", url: buildInviteUrl(token) })
+    } catch (e) {
+      // Closing the sheet is a choice, not a failure: nothing to say.
+      if (e instanceof DOMException && e.name === "AbortError") return
+      console.warn("[members] share failed, copying instead:", e instanceof Error ? e.message : e)
+      await handleCopyLink(token)
+    }
+  }, [handleCopyLink])
 
   const handleRevokeInvite = useCallback(async (inviteId: string) => {
     setActionError(null)
@@ -197,6 +233,8 @@ export function HomeMembersSection({ homeId }: Props) {
     }
     setInvites((prev) => prev.filter((i) => i.invite_id !== inviteId))
   }, [homeId])
+
+  const freshInvite = freshToken ? invites.find((i) => i.token === freshToken) ?? null : null
 
   const handleConfirmRemove = useCallback(async () => {
     if (!removeTarget) return
@@ -241,6 +279,12 @@ export function HomeMembersSection({ homeId }: Props) {
             </Button>
           </div>
 
+          {freshInvite && (
+            <p role="status" className="text-sm text-muted-foreground mb-3">
+              Invite link ready. It works for {daysLeft(freshInvite.expires_at, readAt)} {daysLeft(freshInvite.expires_at, readAt) === 1 ? "day" : "days"}.
+            </p>
+          )}
+
           {actionError && (
             <p role="alert" className="text-sm text-destructive mb-3">
               {actionError}
@@ -267,13 +311,14 @@ export function HomeMembersSection({ homeId }: Props) {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                        {initials(m.profile?.full_name)}
+                        {personInitials(m.profile?.full_name, { isSelf: m.user_id === userId, email: user?.email ?? null })
+                          || <UserIcon className="size-4" aria-hidden />}
                       </div>
                       <div>
                         <p className="text-sm font-medium">
                           {/* "Unknown" read as the app having lost track of someone.
                               It simply has no name for them. */}
-                          {m.profile?.full_name ?? (m.user_id === userId ? "You" : "Member")}
+                          {personLabel(m.profile?.full_name, { isSelf: m.user_id === userId })}
                           {m.user_id === userId && m.profile?.full_name && (
                             <span className="text-muted-foreground font-normal ml-1">(you)</span>
                           )}
@@ -332,7 +377,7 @@ export function HomeMembersSection({ homeId }: Props) {
                           size="icon-sm"
                           className="text-muted-foreground sm:pointer-fine:opacity-0 sm:pointer-fine:group-hover:opacity-100 sm:pointer-fine:focus-visible:opacity-100 hover:text-destructive transition-opacity"
                           onClick={() => setRemoveTarget(m)}
-                          aria-label={`Remove ${m.profile?.full_name ?? "member"}`}
+                          aria-label={`Remove ${m.profile?.full_name?.trim() || "this member"}`}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>
@@ -351,33 +396,16 @@ export function HomeMembersSection({ homeId }: Props) {
                   <div className="space-y-2">
                     {invites.map((inv) => {
                       const isCopied = copiedToken === inv.token
-                      const expiresIn = Math.ceil(
-                        (new Date(inv.expires_at).getTime() - readAt) / (1000 * 60 * 60 * 24)
-                      )
+                      const expiresIn = daysLeft(inv.expires_at, readAt)
                       return (
-                        <div
-                          key={inv.invite_id}
-                          className="flex items-center justify-between py-1.5 text-sm"
-                        >
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Link2 className="size-3.5" />
-                            <span>
-                              Invite link · expires in {expiresIn}d
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => handleCopyLink(inv.token)}
-                            >
-                              {isCopied ? (
-                                <><Check className="size-3 mr-1" /> Copied</>
-                              ) : (
-                                <><Copy className="size-3 mr-1" /> Copy link</>
-                              )}
-                            </Button>
+                        <div key={inv.invite_id} className="py-1.5 text-sm" data-testid="invite-row">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Link2 className="size-3.5" />
+                              <span>
+                                Invite link · expires in {expiresIn}d
+                              </span>
+                            </div>
                             <Button
                               variant="ghost"
                               size="icon-sm"
@@ -388,6 +416,29 @@ export function HomeMembersSection({ homeId }: Props) {
                               <Trash2 className="size-3.5" />
                             </Button>
                           </div>
+                          {/* m7: two buttons the same size under the invite —
+                              Share Link filled, Copy outlined. */}
+                          <div className="mt-2 grid grid-cols-2 gap-3">
+                            <Button size="lg" className="gap-2" onClick={() => void handleShareLink(inv.token)}>
+                              <ShareIcon className="size-[18px]" aria-hidden /> Share Link
+                            </Button>
+                            <Button size="lg" variant="outline" className="gap-2" onClick={() => void handleCopyLink(inv.token)}>
+                              {isCopied ? (
+                                <><Check className="size-[18px]" aria-hidden /> Copied</>
+                              ) : (
+                                <><Copy className="size-[18px]" aria-hidden /> Copy</>
+                              )}
+                            </Button>
+                          </div>
+                          {manualToken === inv.token && (
+                            <input
+                              readOnly
+                              value={buildInviteUrl(inv.token)}
+                              aria-label="Invite link"
+                              onFocus={(e) => e.currentTarget.select()}
+                              className="mt-2 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm text-foreground"
+                            />
+                          )}
                         </div>
                       )
                     })}
@@ -408,7 +459,7 @@ export function HomeMembersSection({ homeId }: Props) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove {removeTarget?.profile?.full_name ?? "member"}?</DialogTitle>
+            <DialogTitle>Remove {removeTarget?.profile?.full_name?.trim() || "this member"}?</DialogTitle>
             <DialogDescription>
               They will lose access to this home. You can re-invite them later.
             </DialogDescription>

@@ -34,8 +34,8 @@ async function seededOwnerUid(): Promise<string> {
 
 test.describe("emulator e2e — invites under the role rules", () => {
   test("the Invite button creates a member-role invite, signed by the caller", async ({ page, context }) => {
-    // The handler auto-copies the link; without this a headless clipboard
-    // refusal shows its (harmless) "copying failed" note instead.
+    // Copy is a tap now (seventeen fixes: no automatic copy after create);
+    // the permission lets the test read back what the tap put there.
     await context.grantPermissions(["clipboard-read", "clipboard-write"])
     const before = new Set((await invitesInSeedHome()).map((d) => d.name))
 
@@ -44,13 +44,33 @@ test.describe("emulator e2e — invites under the role rules", () => {
     await expect(section.getByRole("heading", { level: 1, name: "Members" })).toBeVisible({ timeout: 20_000 })
     await section.getByRole("button", { name: /^invite$/i }).click()
 
-    // Landed: a pending invite row, and no error in the section.
+    // Landed: a pending invite row, the ready line with the real expiry, and
+    // no error — in particular no "copying the link failed" (rendered: 0).
     await expect(section.getByText(/Invite link · expires in/).first()).toBeVisible({ timeout: 15_000 })
+    await expect(section.getByText("Invite link ready. It works for 7 days.")).toBeVisible()
     await expect(section.getByRole("alert")).toHaveCount(0)
+    await expect(section.getByText(/copying the link failed/i)).toHaveCount(0)
+
+    // m7: Share Link and Copy under the invite, the same size.
+    const row = section.getByTestId("invite-row").first()
+    const share = row.getByRole("button", { name: "Share Link" })
+    const copy = row.getByRole("button", { name: "Copy" })
+    await expect(share).toBeVisible()
+    await expect(copy).toBeVisible()
+    const [sb, cb] = [await share.boundingBox(), await copy.boundingBox()]
+    expect(Math.round(sb!.width)).toBe(Math.round(cb!.width))
+    expect(Math.round(sb!.height)).toBe(Math.round(cb!.height))
 
     const created = (await invitesInSeedHome()).filter((d) => !before.has(d.name))
     expect(created).toHaveLength(1)
     expect(created[0].fields?.role?.stringValue).toBe("member")
     expect(created[0].fields?.createdBy?.stringValue).toBe(await seededOwnerUid())
+
+    // Copy puts THIS invite's link on the clipboard, and says Copied.
+    const token = created[0].fields?.token?.stringValue
+    expect(token, "the new invite's token").toBeTruthy()
+    await copy.click()
+    await expect(row.getByRole("button", { name: "Copied" })).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(token!)
   })
 })

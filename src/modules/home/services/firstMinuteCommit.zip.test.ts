@@ -56,7 +56,8 @@ describe("saveZipToHome", () => {
   it("writes the zip onto this home and adds the picked tasks; never creates a home", async () => {
     const r = await saveZipToHome("h1", current({ home_type: null }), patch, tasks, [])
     expect(r).toEqual({ kind: "saved", homeId: "h1", addedKeys: ["home.quake_straps"] })
-    expect(svc.upsert).toHaveBeenCalledWith("h1", patch)
+    // The condo also answers own-or-rent (seventeen fixes, PR 2).
+    expect(svc.upsert).toHaveBeenCalledWith("h1", { ...patch, ownership: "own" })
     expect(svc.addLibraryTask.mock.calls.map((c) => [c[0], c[1], c[2].key, c[3].firstDue])).toEqual([["h1", null, "home.quake_straps", "2026-11-28"]])
     expect(svc.createHome).not.toHaveBeenCalled()
     expect(svc.getPrimaryHome).not.toHaveBeenCalled()
@@ -68,6 +69,15 @@ describe("saveZipToHome", () => {
     expect(written).toMatchObject({ zip: "94110" })
     expect(written).not.toHaveProperty("home_type")
     expect(written).not.toHaveProperty("completed_at")
+    expect(written).not.toHaveProperty("ownership")
+  })
+
+  it("an apartment set here saves rent, but never over an own-or-rent already stored", async () => {
+    const apt = { ...patch, home_type: "apartment" as const }
+    await saveZipToHome("h1", current({ home_type: null }), apt, [], [])
+    expect(svc.upsert.mock.calls[0][1]).toMatchObject({ home_type: "apartment", ownership: "rent" })
+    await saveZipToHome("h1", current({ home_type: null, ownership: "own" }), apt, [], [])
+    expect(svc.upsert.mock.calls[1][1]).not.toHaveProperty("ownership")
   })
 
   it("a failed profile write adds nothing and says so", async () => {

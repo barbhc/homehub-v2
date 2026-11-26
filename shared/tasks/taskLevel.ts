@@ -37,7 +37,7 @@ export const TASK_LEVEL_COPY: Record<TaskLevel, { label: string; hint: string }>
   // that about something else (mock, screen 2).
   essential: { label: "Essential only", hint: "Safety and preventing damage" },
   recommended: { label: "Recommended too", hint: "Adds upkeep that makes things last" },
-  everything: { label: "Everything", hint: "All the upkeep your manuals list" },
+  everything: { label: "Everything", hint: "All suggested upkeep, optional included" },
 }
 
 /**

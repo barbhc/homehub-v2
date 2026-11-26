@@ -24,7 +24,7 @@ the desktop "On this page" rail is gone.
 |---|---|---|---|
 | | Account (the person's name, or "Your account") | email | `/settings/account` |
 | This home | Your home | "Zip, home type, shutoffs and notes" | `/your-home` |
-| | Service providers | "N saved", or "Your trusted pros" | `/providers` |
+| | Pros | "N saved", or "Your trusted pros" | `/providers` |
 | | Members | "Just you" or "N people" | `/settings/members` |
 | | Task level | Essential only / Recommended too / Everything | `/settings/task-level` |
 | | Homes | this home's name | `/settings/homes` |
@@ -76,7 +76,7 @@ which editor is open rides in the URL (`?part=basics`, `?part=rules`,
 | Home profile, "Your home" card, House rules | **Your home** (`/your-home`), with House notes | Settings → Your home; Home's banner |
 | Rooms | **Rooms** (`/inventory/rooms`, `RoomsManager`) | "Edit rooms" under the Items list |
 | Custom tasks | **Your own tasks** (`/maintenance/custom`, `OwnTasksManager`) | "Add your own task" under the Upkeep list |
-| Service providers card | the Providers page it already linked to | Settings → Service providers |
+| Service providers card | the Pros page it already linked to | Settings → Pros |
 | Manuals, Beta features, diagnostics, admin tools | Settings → Internal tools | `dev_tools` only |
 
 **Your own tasks** replaces two forms. Settings' "Custom tasks" created a

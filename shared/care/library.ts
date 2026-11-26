@@ -224,7 +224,12 @@ export interface CareFacts {
  *  offered only to a home whose area carries it — never by default. */
 export type AreaGate = "earthquake" | "wildfire" | "hurricane" | "freeze"
 
-const MFR = "Typical manufacturer guidance for this category"
+// Seventeen fixes, 2026-11-25: the old words ("Typical manufacturer guidance
+// for this category") read as though we had read this maker's guidance. We
+// read nothing; it is the common advice for the kind. Every MFR entry is an
+// appliance — the item kinds, plus the water heater and the furnace or HVAC
+// visit at home level — so "appliance" stays true wherever this renders.
+const MFR = "Typical for this kind of appliance, not from your manual"
 const NFPA = "NFPA and USFA guidance on alarm testing"
 const CO_EOL = "Alarm makers' end-of-life guidance (Kidde, First Alert)"
 const PEST = "Pest-industry guidance (annual inspections; quarterly bird control)"
@@ -277,7 +282,10 @@ export const LIBRARY: CareEntry[] = [
   { key: "home.co_alarm_check", kind: "home", archetype: "alarm.co.check", title: "Check the carbon monoxide (CO) alarm's date", careType: "maintenance", priorityTier: "essential", riskLevel: "safety", scheduleType: "annual", minutes: 2, cadenceLabel: "Yearly", why: "Their sensors wear out. Most last 5 to 10 years, and the replace-by date is on the back.", how: "Read the date on the back of each alarm. Replace any that are past it, or that chirp after a new battery.", source: CO_EOL, fact: "has_co_alarms" },
   { key: "home.extinguisher", kind: "home", archetype: "extinguisher.check", title: "Check the fire extinguisher", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 3, cadenceLabel: "Yearly", why: "Gauge in the green, pin in place, nothing blocking it.", how: "Read the gauge, check the tag date, shake a dry-chemical unit.", source: NFPA, fact: "has_extinguisher" },
   { key: "home.water_heater", kind: "home", archetype: "flush.tank", title: "Flush the water heater", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 45, cadenceLabel: "Yearly", why: "Sediment shortens the tank's life and makes it noisy and slow.", how: "Power off, hose on the drain valve, drain a few gallons until clear.", source: MFR, fact: "has_water_heater" },
-  { key: "home.air_filter", kind: "home", archetype: "filter.replace.air", title: "Replace the air filter", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 10, cadenceLabel: "Every 1–3 months", why: "A clogged filter makes the system work harder, raises the bill and shortens its life.", how: "Note the size on the old filter's frame, slide it out, fit the new one with the arrow toward the unit.", source: ENERGY_STAR, fact: "has_air_filter" },
+  // Seventeen fixes, owner 2026-11-25: Essential everywhere, the same level as
+  // the furnace and HVAC entries above (it was Recommended here alone). Tasks
+  // already stored keep the level they were saved with.
+  { key: "home.air_filter", kind: "home", archetype: "filter.replace.air", title: "Replace the air filter", careType: "maintenance", priorityTier: "essential", riskLevel: "prevent_damage", scheduleType: "quarterly", minutes: 10, cadenceLabel: "Every 1–3 months", why: "A clogged filter makes the system work harder, raises the bill and shortens its life.", how: "Note the size on the old filter's frame, slide it out, fit the new one with the arrow toward the unit.", source: ENERGY_STAR, fact: "has_air_filter" },
   { key: "home.hvac_service", kind: "home", archetype: "service.pro", title: "Furnace or HVAC service", careType: "maintenance", priorityTier: "recommended", riskLevel: "prevent_damage", scheduleType: "annual", minutes: 60, cadenceLabel: "Yearly, before heating season", why: "A tune-up catches the failures that happen on the first cold night.", how: "Book a technician; ask for the heat-exchanger check.", source: MFR, pro: true, fact: "has_hvac_service" },
   { key: "home.quake_straps", kind: "home", archetype: "quake.strap", title: "Check the water heater's quake straps", careType: "maintenance", priorityTier: "recommended", riskLevel: "safety", scheduleType: "annual", minutes: 5, cadenceLabel: "Yearly", why: "A tank that tips in a quake can break its gas or water line.", how: "Look for two metal straps, one near the top and one near the bottom, screwed into the wall studs; plumber's tape is not enough.", source: ECA, fact: "has_water_heater", area: "earthquake" },
   // ── weather and the outside ──

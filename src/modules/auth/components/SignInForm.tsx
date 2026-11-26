@@ -4,7 +4,6 @@ import {
   HouseIcon,
   MailIcon,
   LockIcon,
-  UserIcon,
   EyeIcon,
   EyeOffIcon,
   ChevronLeftIcon,
@@ -132,7 +131,6 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
   const [mode, setMode] = useState<Mode>(initialMode)
   const [email, setEmail] = useState(prefillEmail ?? "")
   const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
   const [error, setError] = useState<string | null>(takeAppleRedirectError)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -158,7 +156,7 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
         onSuccess?.()
         return
       }
-      const { error: err } = await signUp(email, password, name)
+      const { error: err } = await signUp(email, password)
       if (err) { setError(authErrorMessage(err)); return }
       setMessage("Check your email to confirm your account.")
     } catch {
@@ -210,12 +208,10 @@ export function SignInForm({ className, showMark, initialMode = "signin", prefil
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {mode === "signup" && (
-          <AuthInput
-            label="Your name" icon={UserIcon} value={name} onChange={setName}
-            placeholder="Your name" autoComplete="name" maxLength={100}
-          />
-        )}
+        {/* Sign-up asks email and password only (seventeen fixes, 2026-11-25),
+            the same as the first-minute path. The name is set later, in
+            Settings > Account or Members; src/lib/personName.ts says what
+            every screen shows until then. */}
         <AuthInput
           label="Email" icon={MailIcon} type="email" value={email} onChange={setEmail}
           placeholder="you@email.com" autoComplete="email" required

@@ -172,13 +172,13 @@ export function rowsFrom(data: PreviewResult, freezeRiskFalse = false, opts: Rev
     minutes: t.estimated_minutes,
     origSchedule: t.schedule_type,
     riskLevel: t.risk_level ?? null,
-    actor: classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" ")),
+    actor: classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" "), t.title),
     // A per-use habit is a tip: you do it at the machine, and a calendar reminder
     // for it is noise — unless it's safety work, which never auto-demotes.
     kind:
       t.schedule_type === "after_each_use" &&
       t.risk_level !== "safety" &&
-      classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" ")) === "diy"
+      classifyActorFromText([t.title, t.description ?? "", t.instructions_text ?? ""].join(" "), t.title) === "diy"
         ? "usage"
         : t.care_type === "cleaning" ? "cleaning" : "maintenance",
     tier: t.priority_tier,

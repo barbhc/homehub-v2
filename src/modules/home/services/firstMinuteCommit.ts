@@ -11,14 +11,16 @@
  *      Any other home is never written over: the caller asks before adding
  *      the tasks to it.
  *   2. Create the home (or reuse the one a failed attempt already made).
- *   3. Write the profile the steps collected: zip, area, home type, answers.
+ *   3. Write the profile the steps collected: zip, area, home type, answers —
+ *      and own-or-rent when the home type answered it and nothing is stored.
  *   4. Add each picked task, skipping any a failed attempt already added.
  */
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/integrations/firebase"
 import { createHome, getPrimaryHome } from "./homeService"
-import { getHomeProfile, upsertHomeProfile, type HomeProfile } from "./homeProfileService"
+import { getHomeProfile, upsertHomeProfile, type HomeProfile, type HomeProfileUpsert } from "./homeProfileService"
 import type { DraftProfile, PendingTask } from "./firstMinuteDraft"
+import { ownershipForHomeType } from "../components/onboardingOptions"
 import { addLibraryTask } from "@/modules/care/services/careSuggestionService"
 import { entryByKey, type ExistingTask } from "../../../../shared/care/library"
 import { assertServed } from "@/lib/assertServed"
@@ -70,7 +72,9 @@ export async function commitFirstMinute(input: CommitInput): Promise<CommitResul
     track("home_created", { home_id: homeId })
   }
 
-  const profile = await upsertHomeProfile(homeId, input.patch)
+  // A home a failed attempt of THIS setup created holds this setup's own
+  // earlier answer, so a changed home type re-answers own-or-rent there.
+  const profile = await upsertHomeProfile(homeId, await withOwnership(homeId, input.patch, !!existing.data && homeId !== input.createdHomeId))
   if (profile.error) {
     console.warn(`[first minute] could not save the profile (home ${homeId}):`, profile.error.message)
     return fail("Couldn't save your home. Check your connection and try again.", homeId)
@@ -89,6 +93,26 @@ export async function addToExistingHome(homeId: string, tasks: PendingTask[], ad
   const added = await addTasks(homeId, tasks, addedKeys)
   if (added.failed.length) return { kind: "failed", message: added.message, createdHomeId: null, addedKeys: added.addedKeys }
   return { kind: "saved", homeId, addedKeys: added.addedKeys }
+}
+
+/**
+ * The patch plus own-or-rent when the home type answers it (Apartment → rent,
+ * Condo → own) and the home has none stored. A brand-new home has nothing
+ * stored. For a home that existed, a profile that can't be read keeps the patch
+ * as it was: the default is a convenience, never worth failing the save over.
+ */
+async function withOwnership(homeId: string, patch: DraftProfile, homeExisted: boolean): Promise<HomeProfileUpsert> {
+  const implied = ownershipForHomeType(patch.home_type)
+  if (!implied) return patch
+  if (homeExisted) {
+    const p = await getHomeProfile(homeId)
+    if (p.error) {
+      console.warn(`[first minute] could not read home ${homeId}'s own-or-rent; leaving it unset:`, p.error.message)
+      return patch
+    }
+    if (p.data?.ownership) return patch
+  }
+  return { ...patch, ownership: implied }
 }
 
 /** Their own home, with nothing set up yet? "unknown" when the profile can't be read. */
@@ -180,9 +204,13 @@ export async function saveZipToHome(
   tasks: PendingTask[],
   addedKeys: string[],
 ): Promise<CommitResult> {
-  const write: DraftProfile = { ...patch }
+  const write: HomeProfileUpsert = { ...patch }
   if (current.completed_at) delete write.completed_at
   if (current.home_type) delete write.home_type
+  // The home type these screens set answers own-or-rent too (seventeen fixes,
+  // PR 2) — only when the home has none stored.
+  const implied = ownershipForHomeType(write.home_type)
+  if (implied && !current.ownership) write.ownership = implied
   const profile = await upsertHomeProfile(homeId, write)
   if (profile.error) {
     console.warn(`[add zip] could not save the profile (home ${homeId}):`, profile.error.message)

@@ -41,19 +41,23 @@ describe("the mock's worked examples", () => {
     expect(l.rows.map((r) => r.reason)).toEqual(["The clocks changed this month. Test them together.", "Heating season starts here this month.", "High earthquake risk in this county."])
     expect(l.rows.map((r) => r.question?.text ?? null)).toEqual([null, "Do you have a furnace or central air?", "Is there a water heater in your unit?"])
   })
-  it("house, 55406, November: alarms ✓ · outdoor taps 'if not done yet' (asks) · air filter (asks); nothing left off", () => {
+  // Seventeen fixes (owner, 2026-11-25): the air filter is Essential
+  // everywhere, so it now ranks with the other essentials — ahead of the
+  // outdoor taps here (same tier, fewer minutes) and ahead of hurricane prep
+  // (Recommended) in Miami. The mock's order put it after both.
+  it("house, 55406, November: alarms ✓ · air filter (asks) · outdoor taps 'if not done yet' (asks); nothing left off", () => {
     const l = firstList(fromZip("55406", "house", 11))
-    expect(keys(l)).toEqual(["home.alarm_test", "home.outdoor_taps", "home.air_filter"])
+    expect(keys(l)).toEqual(["home.alarm_test", "home.air_filter", "home.outdoor_taps"])
     expect(asks(l)).toEqual([false, true, true])
-    expect(l.rows[1].ifNotDoneYet).toBe(true)
+    expect(l.rows[2].ifNotDoneYet).toBe(true)
     expect(l.leftOff).toEqual([])
-    expect(l.rows.map((r) => r.reason)).toEqual(["The clocks changed this month. Test them together.", "If not done yet. Hard freezes start here in November.", "Heating season is under way here."])
-    expect(l.rows.map((r) => r.question?.text ?? null)).toEqual([null, "Any outdoor taps or hose bibs?", "Does the furnace take a filter?"])
+    expect(l.rows.map((r) => r.reason)).toEqual(["The clocks changed this month. Test them together.", "Heating season is under way here.", "If not done yet. Hard freezes start here in November."])
+    expect(l.rows.map((r) => r.question?.text ?? null)).toEqual([null, "Does the furnace take a filter?", "Any outdoor taps or hose bibs?"])
   })
-  it("condo, 33139, May: hurricane season ✓ · air filter (asks)", () => {
+  it("condo, 33139, May: air filter (asks) · hurricane season ✓", () => {
     const l = firstList(fromZip("33139", "condo", 5))
-    expect(keys(l)).toEqual(["home.hurricane_prep", "home.air_filter"])
-    expect(asks(l)).toEqual([false, true])
+    expect(keys(l)).toEqual(["home.air_filter", "home.hurricane_prep"])
+    expect(asks(l)).toEqual([true, false])
   })
   it("no zip, November: alarms ✓ · air filter (asks), nothing left off", () => {
     const l = firstList({ month: 11, climate: null, freezeRisk: null, homeType: null, hazards: [], facts: {}, derived: { freezeRisk: false, buildingHandlesExterior: false }, hasArea: false, observesDst: null })

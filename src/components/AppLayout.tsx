@@ -28,7 +28,7 @@ const nav = [
 // — Tasks → Cleaning, Items → Warranties (design/tasks-items-views.md) — so the
 // header no longer lists them.
 const DESKTOP_LEVEL_NAV: { to: string; label: string; tourId: string; minLevel: "engaged" | "power" }[] = [
-  { to: "/providers", label: "Providers", tourId: "nav-providers", minLevel: "power" },
+  { to: "/providers", label: "Pros", tourId: "nav-providers", minLevel: "power" },
 ]
 const LEVEL_RANK: Record<string, number> = { essentials: 0, engaged: 1, power: 2 }
 

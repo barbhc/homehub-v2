@@ -300,13 +300,13 @@ export default function ProvidersPage() {
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-[1.6875rem] font-extrabold tracking-[-0.6px] md:text-[2.0625rem] md:tracking-[-0.7px]" style={{ color: INK }}>
-              Providers
+              Pros
             </h1>
             <p className="mt-1.5 text-[0.84375rem]" style={{ color: SUB }}>Your trusted pros, grouped by trade.</p>
           </div>
           {providers.length > 0 && (
             <Button onClick={openAdd} className="gap-1.5">
-              <PlusIcon className="size-4" /> Add provider
+              <PlusIcon className="size-4" /> Add a pro
             </Button>
           )}
         </header>
@@ -315,8 +315,8 @@ export default function ProvidersPage() {
         {loading ? (
           <p className="text-[0.84375rem]" style={{ color: SUB }}>Loading…</p>
         ) : loadFailed ? (
-          // A list never read is not "No service providers yet".
-          <LoadErrorState title="Couldn't load your providers" message="Check your connection and try again." onRetry={reload} />
+          // A list never read is not "No pros yet".
+          <LoadErrorState title="Couldn't load your pros" message="Check your connection and try again." onRetry={reload} />
         ) : providers.length === 0 ? (
           // ── Empty state (the user genuinely has zero providers) ──
           <div className="flex flex-col items-center justify-center rounded-2xl bg-[var(--hh-surface)] px-6 py-16 text-center shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
@@ -326,12 +326,12 @@ export default function ProvidersPage() {
             >
               <WrenchIcon className="size-6" />
             </div>
-            <h2 className="text-[1.0625rem] font-bold" style={{ color: INK }}>No service providers yet</h2>
+            <h2 className="text-[1.0625rem] font-bold" style={{ color: INK }}>No pros yet</h2>
             <p className="mt-1.5 max-w-xs text-[0.84375rem]" style={{ color: SUB }}>
               Keep your contractors and service pros in one place — one tap to call or email.
             </p>
             <Button onClick={openAdd} className="mt-5 gap-1.5">
-              <PlusIcon className="size-4" /> Add provider
+              <PlusIcon className="size-4" /> Add a pro
             </Button>
           </div>
         ) : (
@@ -395,7 +395,7 @@ export default function ProvidersPage() {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit provider" : "Add service provider"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit pro" : "Add a pro"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -453,7 +453,7 @@ export default function ProvidersPage() {
           <DialogFooter showCloseButton>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2Icon className="mr-2 size-4 animate-spin" />}
-              {editingId ? "Save changes" : "Add provider"}
+              {editingId ? "Save changes" : "Add pro"}
             </Button>
           </DialogFooter>
         </DialogContent>

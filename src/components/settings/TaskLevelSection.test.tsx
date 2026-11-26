@@ -40,7 +40,7 @@ describe("Settings › Task level", () => {
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Essential onlySafety and preventing damage",
       "Recommended tooAdds upkeep that makes things last",
-      "EverythingAll the upkeep your manuals list",
+      "EverythingAll suggested upkeep, optional included",
     ])
   })
 

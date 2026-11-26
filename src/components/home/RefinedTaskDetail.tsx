@@ -8,13 +8,15 @@ import { RemoveScroll } from "react-remove-scroll"
 import {
   ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, CheckCircle2Icon,
   RepeatIcon, InfoIcon, PackageIcon, MinusIcon, PlusIcon,
-  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon,
+  BookOpenIcon, ArrowUpRightIcon, SlidersHorizontalIcon, PencilIcon, BellRingIcon, UserIcon,
 } from "lucide-react"
 import {
   getTaskDetail, markTaskInstanceDone, assignTaskInstance, computeNextDueDate, setTaskReminder, unsnoozeTaskInstance,
   type TaskDetail,
 } from "@/modules/care"
 import { getHomeMembers, type HomeMember } from "@/modules/home"
+import { useAuth } from "@/modules/auth"
+import { personInitials, personLabel } from "@/lib/personName"
 import { canAssignTasks } from "@/modules/care"
 import { TaskFeedbackSheet } from "@/components/care/TaskFeedbackSheet"
 import { classifyTaskDetail } from "@/lib/taskActor"
@@ -85,6 +87,7 @@ export function RefinedTaskDetail({
   density?: "spacious" | "cozy" | "compact"
 }) {
   const d = dens(density)
+  const { user } = useAuth()
   const [detail, setDetail] = useState<TaskDetail | null>(null)
   const [members, setMembers] = useState<HomeMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -292,6 +295,9 @@ export function RefinedTaskDetail({
 
   const tier = priorityTier(detail.tier === "essential" ? "critical" : detail.tier === "recommended" ? "high" : "medium")
   const assignee = members.find((m) => m.user_id === detail.assignedTo)
+  // A member with no name used to read "Anyone" here — the same word as
+  // unassigned. personName says what to call them instead.
+  const whoOf = (uid: string) => ({ isSelf: uid === user?.id, email: user?.email ?? null })
   const showAssign = canAssignTasks(members.length)
   // One decision for this task: it gates the steps below AND the feedback
   // sheet's safety pushback, so the two can never disagree.
@@ -387,19 +393,21 @@ export function RefinedTaskDetail({
     <>
       <button onClick={() => setAssignOpen((v) => !v)} className="flex w-full items-center gap-3 rounded-[13px] border border-[var(--hh-line2)] px-3.5 py-3 text-left" style={{ background: "var(--hh-surface)" }}>
         <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>
-          {(assignee?.profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
+          {assignee
+            ? (personInitials(assignee.profile?.full_name, whoOf(assignee.user_id)).slice(0, 1) || <UserIcon className="size-4" aria-hidden />)
+            : <UserIcon className="size-4" aria-hidden />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[0.6875rem] font-bold uppercase tracking-[0.4px]" style={{ color: SUB }}>Assigned to</span>
-          <span className="block text-[0.9375rem] font-bold" style={{ color: INK }}>{assignee?.profile?.full_name ?? "Anyone"}</span>
+          <span className="block text-[0.9375rem] font-bold" style={{ color: INK }}>{assignee ? personLabel(assignee.profile?.full_name, whoOf(assignee.user_id)) : "Anyone"}</span>
         </span>
         {assignOpen ? <ChevronUpIcon className="size-[18px]" style={{ color: FAINT }} /> : <ChevronDownIcon className="size-[18px]" style={{ color: FAINT }} />}
       </button>
       {assignOpen && (
         <div className="mt-1.5 overflow-hidden rounded-xl border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}>
-          {[{ user_id: null as string | null, name: "Anyone" }, ...members.map((m) => ({ user_id: m.user_id, name: m.profile?.full_name ?? "Member" }))].map((m, i) => (
+          {[{ user_id: null as string | null, name: "Anyone", initial: "" }, ...members.map((m) => ({ user_id: m.user_id, name: personLabel(m.profile?.full_name, whoOf(m.user_id)), initial: personInitials(m.profile?.full_name, whoOf(m.user_id)).slice(0, 1) }))].map((m, i) => (
             <button key={m.user_id ?? "none"} onClick={() => assignTo(m.user_id)} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left" style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none", background: m.user_id === detail.assignedTo ? "var(--hh-surface2)" : "var(--hh-surface)" }}>
-              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
+              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.initial || <UserIcon className="size-3.5" aria-hidden />}</span>
               <span className="flex-1 text-[0.9375rem] font-semibold" style={{ color: INK }}>{m.name}</span>
               {m.user_id === detail.assignedTo && <CheckIcon className="size-4" strokeWidth={2.6} style={{ color: TEAL }} />}
             </button>

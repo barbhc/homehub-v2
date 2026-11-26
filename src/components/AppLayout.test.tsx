@@ -35,7 +35,7 @@ describe("AppLayout — navigation", () => {
       </MemoryRouter>,
     )
     // The level-grown nav did render: Providers is there…
-    expect(screen.getByRole("link", { name: "Providers" })).toHaveAttribute("href", "/providers")
+    expect(screen.getByRole("link", { name: "Pros" })).toHaveAttribute("href", "/providers")
     // …and Clean and Warranties are not in the DOM at all, under any name or address.
     expect(screen.queryAllByRole("link", { name: /^(Clean|Cleaning|Warranties)$/ })).toHaveLength(0)
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"))

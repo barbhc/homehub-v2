@@ -12,6 +12,7 @@ import { scanStatusByItem, useScanTray, type ItemScanStatus } from "@/components
 import { requestReview } from "@/lib/reviewRequest"
 import { SCAN_KEEPS_GOING_SHORT } from "@/lib/scanCopy"
 import { categoryLabel } from "@/lib/categoryLabel"
+import { itemMatchesQuery } from "@/lib/itemSearch"
 import { dens } from "@/lib/redesign/tokens"
 import { SegmentedControl } from "@/components/ui/SegmentedControl"
 import { segmentPanelId, segmentPanelProps } from "@/components/ui/segmentIds"
@@ -133,13 +134,12 @@ export function RefinedItems({
     return m
   }, [rooms])
 
+  // Name, brand, model, room, and the everyday words for a kind ("fridge"
+  // finds a Refrigerator) — src/lib/itemSearch.ts.
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(
-      (i) => i.display_name.toLowerCase().includes(q) || (i.brand ?? "").toLowerCase().includes(q)
-    )
-  }, [items, query])
+    if (!query.trim()) return items
+    return items.filter((i) => itemMatchesQuery(i, i.room_id ? roomName.get(i.room_id) ?? null : null, query))
+  }, [items, query, roomName])
 
   const groups = useMemo(() => {
     if (sort === "recent") return [{ key: null as string | null, items: [...filtered].reverse() }]
