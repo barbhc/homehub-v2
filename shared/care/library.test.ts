@@ -46,6 +46,29 @@ describe("kindOf — what an item is, from the fields it already carries", () =>
   })
 })
 
+describe("kindOf — the picker's sub-type names the kind (seventeen fixes follow-up)", () => {
+  // The item page's category picker writes sub_type plus the GROUP label as
+  // category, so neither the name nor the category says what it is.
+  const filed = (sub_type: string | null) => ({ display_name: "front loader", category: "Major Appliance", brand: null, model: null, sub_type })
+
+  it("a self-named item filed as Washing machine is a washer", () => {
+    expect(kindOf(filed(null))).toBeNull()
+    expect(kindOf(filed("washing-machine"))).toBe("washer")
+  })
+  it("every KIND_CHIPS sub-type resolves through the picker path too", async () => {
+    const { KIND_CHIPS } = await import("../../src/components/smart-add/identifyData")
+    for (const k of KIND_CHIPS) expect(kindOf(filed(k.subType)), k.subType).not.toBeNull()
+  })
+  it("ambiguous sub-types fall through to the text rules, unchanged", () => {
+    expect(kindOf({ ...filed("hair-dryer"), display_name: "Dyson Supersonic" })).toBeNull()
+    expect(kindOf({ ...filed("power-washer"), display_name: "Ryobi 2300" })).toBeNull()
+    expect(kindOf({ ...filed("other"), display_name: "LG Washer" })).toBe("washer")
+  })
+  it("her explicit pick wins over the name", () => {
+    expect(kindOf({ ...filed("dishwasher"), display_name: "Kitchen thing" })).toBe("dishwasher")
+  })
+})
+
 describe("kindOf — a sub-type id in the category reads as its words (before-friends PR C)", () => {
   // "What is it?" (the add screen's chips, and the item page's no-manual card)
   // stores the chip's sub-type id as the category. The item's own name says
