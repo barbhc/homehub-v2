@@ -312,7 +312,8 @@ test.describe("journey walks", () => {
     await expect(collapsed).toContainText("You can add a model or manual anytime in Items.")
     await expect(page.getByTestId("empty-home-card")).toHaveCount(0)
     await expect(page.getByText(/^Good (morning|afternoon|evening)/).filter(visible).first()).toBeVisible()
-    await expect(page.getByPlaceholder("Ask about your home…").filter(visible).first()).toBeVisible()
+    // Ask: the field on a phone, the Ask Homehub button on desktop.
+    await expect(page.getByPlaceholder("Ask about your home…").or(page.getByRole("link", { name: "Ask Homehub" })).filter(visible).first()).toBeVisible()
     await expect(page.getByTestId("ask-starters").filter(visible).first()).toBeVisible()
     await expect(page.getByTestId("in-a-pinch").filter(visible).first()).toBeVisible({ timeout: 20_000 })
     // Not rendered at all: Next up, Coming up, All quiet, the profile banner.
