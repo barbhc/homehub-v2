@@ -78,7 +78,8 @@ branch that added it._
 - **The first list's order moved** when the air filter became Essential: the
   list sorts by tier, so the filter now sits above outdoor taps (Minneapolis,
   November) and hurricane prep (Miami, May), unlike the approved D8 mock.
-  Owner call: keep tier order, or put the seasonal task first.
+  **DECIDED 2026-11-26 (owner): keep it.** Essential first, wherever you
+  live. Not a bug; don't "fix" the order back to the mock.
 - **Share Link / Copy untested on a real iPhone** (#310). Safari may refuse
   the copy after a dismissed share sheet; "Couldn't copy" plus the link field
   cover it.
