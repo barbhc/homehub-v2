@@ -58,6 +58,7 @@ const BETA_NEW = [
   "with proactive reminders so nothing slips.",
 ]
 const BETA_OLD = [
+  "<h3>Answers from your manuals</h3>",
   "Scan a label or type the brand and model. Homehub files each item by room, with its manual, warranty and notes in one place.",
   "<strong>By room,</strong>",
   "with calm reminders so nothing slips.",
@@ -83,6 +84,9 @@ describe("before-friends copy (mock 3)", () => {
   })
   it.each(BETA_OLD)("/beta no longer says %s", (s) => {
     expect(beta).not.toContain(s)
+  })
+  it("/beta's Ask headline matches the welcome page (seventeen fixes, m6)", () => {
+    expect(beta).toContain("<h3>Answers about your home</h3>")
   })
 
   it("no new sentence carries an em dash", () => {

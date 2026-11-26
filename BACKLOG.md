@@ -65,8 +65,6 @@ branch that added it._
   keep a hash of the reviewed payload with the commit and refuse a different one.
 - **Replace does not carry the typical task's last-done date** to the
   manual's task (D2). The mock's "Its last done date carries over" was cut.
-- **The welcome page's Ask headline** ("Answers from your manuals",
-  `src/pages/Landing.tsx`) is still manual-first.
 - **How often the model lookup recognises a real model is unmeasured.**
 - **`kindOf` reads hyphens as spaces in the item's category only** (PR C),
   not in its name or model: "Heat-Pump Dryer" stays a dryer, which is right,
@@ -74,6 +72,21 @@ branch that added it._
   revisit if a kind is missed for that reason.
 
 ---
+
+## Seventeen fixes (#309, #310, 2026-11-26) — what they leave
+
+- **Re-filing a self-named item doesn't reach the care library.** A washer
+  she named "front loader" and then filed as Major appliance → Washing
+  machine saves the category LABEL ("Major Appliance"); the care library's
+  `kindOf` reads that text, not `sub_type`, so the item still gets no typical
+  care and no chips. Fix: make `kindOf` read `sub_type` first.
+- **The first list's order moved** when the air filter became Essential: the
+  list sorts by tier, so the filter now sits above outdoor taps (Minneapolis,
+  November) and hurricane prep (Miami, May), unlike the approved D8 mock.
+  Owner call: keep tier order, or put the seasonal task first.
+- **Share Link / Copy untested on a real iPhone** (#310). Safari may refuse
+  the copy after a dismissed share sheet; "Couldn't copy" plus the link field
+  cover it.
 
 ## Demo feedback 2026-11-17 — seven items, directions decided 2026-11-18, none built
 
