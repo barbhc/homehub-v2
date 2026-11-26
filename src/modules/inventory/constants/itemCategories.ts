@@ -149,7 +149,7 @@ export const ITEM_CATEGORIES: CategoryDefinition[] = [
           subType: ["hvac-furnace", "air-conditioner", "range-hood", "refrigerator"],
         },
       },
-      { key: "service_provider", label: "Service provider", type: "text" },
+      { key: "service_provider", label: "Pro who services it", type: "text" },
     ],
     taskGeneration: {
       defaultTier: "essential",
@@ -290,7 +290,7 @@ export const ITEM_CATEGORIES: CategoryDefinition[] = [
     fields: [
       { key: "installation_date", label: "Installation date", type: "date" },
       { key: "last_inspection", label: "Last inspection", type: "date" },
-      { key: "service_provider", label: "Service provider", type: "text" },
+      { key: "service_provider", label: "Pro who services it", type: "text" },
       {
         key: "service_interval",
         label: "Service interval",

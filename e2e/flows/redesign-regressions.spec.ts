@@ -73,7 +73,7 @@ test.describe("B · landing / seeded data", () => {
     await expect(vis(page.getByText(/Pro Plumb/i))).toBeVisible()
     await expect(vis(page.getByText(/Bright Spark Electric/i))).toBeVisible()
     // …so the empty state must be absent.
-    await expect(page.getByText(/no service providers/i)).toHaveCount(0)
+    await expect(page.getByText(/no pros yet/i)).toHaveCount(0)
 
     if (!isMobile(testInfo.project.name)) {
       // Desktop: selecting a provider shows its contact actions in the detail pane.

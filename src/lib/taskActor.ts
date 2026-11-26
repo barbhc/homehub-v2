@@ -43,12 +43,6 @@ const HAZARD_PATTERNS: RegExp[] = [
   // Propane / natural gas only with a hazardous object — "your natural gas
   // range" and "clean the propane grill grates" are descriptions, not gas work.
   /\b(propane|natural gas|lp gas|lpg)\b[^.]{0,30}\b(tank|cylinder|regulator|line|valve|connection|leak|orifice|conversion|hook-?up)|\b(tank|cylinder|regulator|valve|connection|leak|orifice)\b[^.]{0,30}\b(propane|natural gas|lp gas|lpg)\b|\bconver(t|sion)\b[^.]{0,20}\b(propane|natural gas|lp)\b/i,
-  // CO itself — but testing the CO alarm is a homeowner's job, and "Co." is a
-  // company. Case-sensitive on purpose: the gas is written "CO". The app spells
-  // it "carbon monoxide (CO) alarm" (before-friends B1), so the device may
-  // follow the "(CO)" as well as the words.
-  /\bcarbon monoxide(?!\s+(?:\(CO\)\s+)?(detector|alarm|sensor|monitor))/i,
-  /\bCO\b(?!\)?[\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
   // Ignition and flame proving on gas appliances.
   /\bpilot\b|\bthermocouple|\bthermopile|\bflame\s*(sensor|rod|probe)|\bignit(er|or)\b|\bhot surface ignit|\bspark ignit/i,
   // Furnace / boiler / water-heater burners (a range's burner caps are cleaning).
@@ -69,6 +63,36 @@ const HAZARD_PATTERNS: RegExp[] = [
   // Refrigerant (an EPA-certified job; "refrigerator" does not match).
   /\brefrigerant|\bfreon\b|\brecharge\b[^.]{0,20}\b(a\/?c|air conditioner|system|refrigerant)/i,
 ]
+
+/**
+ * CO itself — but testing the CO alarm is a homeowner's job, and "Co." is a
+ * company. Case-sensitive on purpose: the gas is written "CO". The app spells
+ * it "carbon monoxide (CO) alarm" (before-friends B1), so the device may follow
+ * the "(CO)" as well as the words.
+ *
+ * Kept apart from HAZARD_PATTERNS for one reason: an alarm check's REASON names
+ * the gas it warns of. "Test smoke & CO detectors", justified "…the first
+ * warning of a fire or CO leak", read as CO work and got "Schedule a visit with
+ * a technician" on Home (seventeen fixes, 2026-11-25). When the TITLE is an
+ * alarm test or date check (isAlarmCheckTitle), these two are not counted;
+ * every other hazard still is, so a hardwired alarm or gas work named anywhere
+ * in the task stays hazardous.
+ */
+const CO_GAS_PATTERNS: RegExp[] = [
+  /\bcarbon monoxide(?!\s+(?:\(CO\)\s+)?(detector|alarm|sensor|monitor))/i,
+  /\bCO\b(?!\)?[\s-]*(?:[Dd]etector|[Aa]larm|[Ss]ensor|[Mm]onitor|DETECTOR|ALARM|SENSOR|MONITOR))/,
+]
+
+/** A title whose work is checking an alarm: test it, read its date, change its
+ *  batteries. Starts with the verb and names the device, so "Test for carbon
+ *  monoxide leaks" (no device) is not one. */
+const ALARM_CHECK_TITLE = /^\W*(?:test|check|press|replace|change)\b[^\n]*\b(?:alarm|detector)s?(?:'s)?\b/i
+/** …and names nothing that is CO or gas work in its own right. */
+const ALARM_TITLE_NOT_CHECK = /\b(?:leak\w*|gas|flue|vent\w*|furnace|boiler|burner|chimney|exhaust)\b/i
+
+export function isAlarmCheckTitle(title: string | null | undefined): boolean {
+  return !!title && ALARM_CHECK_TITLE.test(title) && !ALARM_TITLE_NOT_CHECK.test(title)
+}
 
 /**
  * Words that are almost always a manual's boilerplate caution, not the work
@@ -98,9 +122,10 @@ function hasPanelWork(text: string): boolean {
   return sentencesOf(text).some((s) => PANEL.test(s) && !PANEL_SAFE_USE.test(s))
 }
 
-function isHazardText(text: string): boolean {
+function isHazardText(text: string, alarmCheck = false): boolean {
   return (
     HAZARD_PATTERNS.some((p) => p.test(text)) ||
+    (!alarmCheck && CO_GAS_PATTERNS.some((p) => p.test(text))) ||
     hasPanelWork(text) ||
     sentencesOf(text).some((s) => CAUTION_ONLY.test(s) && !CAUTION_SENTENCE.test(s))
   )
@@ -193,6 +218,7 @@ export type TaskActorFields = {
 export function classifyTaskFields(f: TaskActorFields): TaskActor {
   return classifyActorFromText(
     [f.title, f.instructions, f.description, f.justification, ...(f.steps ?? [])].filter(Boolean).join("\n"),
+    f.title,
   )
 }
 
@@ -243,9 +269,13 @@ export function classifyTaskActor(task: TaskTemplateWithSchedule): TaskActor {
 /**
  * Classify from already-joined task text — for callers (the feedback sheet's
  * safety pushback) that hold loose fields rather than a full task row.
+ *
+ * `title`, when the caller has it on its own, lets an alarm check's reason
+ * mention CO without the task reading as CO work (CO_GAS_PATTERNS). Without
+ * it nothing is exempted — the conservative answer.
  */
-export function classifyActorFromText(text: string): TaskActor {
-  if (isHazardText(text)) return "hazardous"
+export function classifyActorFromText(text: string, title?: string | null): TaskActor {
+  if (isHazardText(text, isAlarmCheckTitle(title))) return "hazardous"
   if (PRO_PATTERN.test(text)) return "pro"
   if (hasProDirective(text)) return "pro"
   return "diy"

@@ -105,7 +105,7 @@ export function useServiceProviders(homeId: string) {
   const [providers, setProviders] = useState<ServiceProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  /** The list could not be read — not "No service providers added yet". */
+  /** The list could not be read — not "No pros yet". */
   const [loadFailed, setLoadFailed] = useState(false)
   /** A delete the server refused. It used to throw out of a `void remove()`:
    *  an unhandled rejection, the row stuck on "Deleting…", nothing said. */
@@ -171,7 +171,7 @@ export function useServiceProviders(homeId: string) {
         setProviders((prev) => sortProviders([...prev, saved]))
         return { provider: saved }
       } catch (e) {
-        return { error: e instanceof Error ? e.message : "Could not save provider" }
+        return { error: e instanceof Error ? e.message : "Could not save this pro" }
       }
     },
     [homeId]
@@ -190,7 +190,7 @@ export function useServiceProviders(homeId: string) {
       } catch (e) {
         // The provider stays listed — it is still there — and the list says why.
         console.warn(`[providers] could not delete provider ${providerId} (home ${homeId}):`, e instanceof Error ? e.message : e)
-        setRemoveError("Couldn't delete that provider. Check your connection and try again.")
+        setRemoveError("Couldn't delete that pro. Check your connection and try again.")
       } finally {
         setDeletingId(null)
       }

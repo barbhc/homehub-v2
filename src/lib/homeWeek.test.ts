@@ -66,6 +66,21 @@ describe("prepLine — one reminder, or nothing", () => {
   it("a pro task with nothing to buy says to book the visit", () => {
     expect(prepLine({ title: "Annual furnace service", justification: "A technician checks the heat exchanger and runs a combustion analysis.", notes: null, supplies: [] })).toBe("Schedule a visit with a technician.")
   })
+  // Seventeen fixes, 2026-11-25: the seeded alarm test got the technician
+  // line because its reason says "CO leak". This exact wording is pinned.
+  it("an alarm test never gets the technician line, even when its reason names a CO leak", () => {
+    expect(prepLine({ title: "Test smoke & CO detectors", justification: "Working detectors are your first warning in a fire or CO leak.", notes: null, supplies: [] })).toBeNull()
+  })
+  it.each([
+    // The care library's alarm titles (shared/care/library.ts), and the title
+    // existing tasks kept from before the smoke/CO split.
+    "Test the smoke alarms", "Replace alarm batteries", "Check the carbon monoxide (CO) alarm's date", "Test smoke and CO alarms",
+  ])("%s, with a reason naming CO, gets no technician line", (title) => {
+    expect(prepLine({ title, justification: "Alarms are the first warning of a fire or a carbon monoxide (CO) leak; CO has no smell.", notes: null, supplies: [] })).toBeNull()
+  })
+  it("real CO work still gets it", () => {
+    expect(prepLine({ title: "Test for carbon monoxide leaks", justification: "A cracked heat exchanger can leak CO.", notes: null, supplies: [] })).toBe("Schedule a visit with a technician.")
+  })
   it("a plain DIY task with nothing to buy shows no line at all", () => {
     expect(prepLine({ title: "Wipe the door seal", justification: null, notes: null, supplies: [] })).toBeNull()
     expect(prepLine(null)).toBeNull()

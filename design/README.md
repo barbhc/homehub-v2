@@ -25,7 +25,7 @@ Homehub reveals features as a home "grows," to keep first-run calm. There are th
 
 - **Simple** — Home, Items, Tasks, Ask, Settings. Just this week's tasks + items.
 - **Standard** — adds **Home upkeep** (recurring home-level tasks) on Home, plus Warranties and Cleaning surfaces.
-- **Advanced** — adds **deep-clean guides**, a tasks calendar, and **Service providers**.
+- **Advanced** — adds **deep-clean guides**, a tasks calendar, and **Pros** (one name everywhere since 2026-11-25; the route stays `/providers`).
 
 On **mobile** the level changes *in-screen content* (the bottom tab bar is fixed at 5: Home · Tasks · Items · Ask · Settings). On **desktop** the level changes *navigation destinations* (the nav grows: Home · Tasks · Items · Clean · Warranties · Providers · Ask). Implement the level as a single piece of app state that gates surfaces on both platforms.
 
@@ -186,7 +186,7 @@ A rounded-square teal tile (radius ≈ 30% of size) containing a white `house` g
 ### 9. Warranties (`hh-warranty.jsx`; desktop `DesktopWarranties`)
 - Coverage across the home, grouped Expiring soon / Active / Lapsed, with summary counts. Calm gold/teal/faint tones.
 
-### 10. Service providers (`hh-providers.jsx`; desktop `DesktopProviders`)
+### 10. Pros (`hh-providers.jsx`; desktop `DesktopProviders`)
 - Trusted pros grouped by trade; provider detail with call/email/website, notes, and items they've worked on.
 
 ### 11. Settings (`hh-settings*.jsx`; desktop `DesktopSettings`)

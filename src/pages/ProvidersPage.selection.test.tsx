@@ -52,6 +52,6 @@ describe("ProvidersPage · which provider is open", () => {
     hook.providers = []
     rerender(page())
     // The empty state's own heading, not a provider's.
-    expect(openProvider()).toBe("No service providers yet")
+    expect(openProvider()).toBe("No pros yet")
   })
 })

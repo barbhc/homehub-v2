@@ -41,7 +41,8 @@ describe("commitFirstMinute", () => {
     const r = await commitFirstMinute(base)
     expect(r).toEqual({ kind: "saved", homeId: "new1", addedKeys: ["home.alarm_test", "home.air_filter"] })
     expect(svc.createHome).toHaveBeenCalledWith({ name: FIRST_HOME_NAME, userId: "u1" })
-    expect(svc.upsert).toHaveBeenCalledWith("new1", base.patch)
+    // A condo also answers own-or-rent (seventeen fixes).
+    expect(svc.upsert).toHaveBeenCalledWith("new1", { ...base.patch, ownership: "own" })
     expect(svc.addLibraryTask.mock.calls.map((c) => [c[0], c[2].key, c[3].firstDue])).toEqual([
       ["new1", "home.alarm_test", "2026-11-21"], ["new1", "home.air_filter", "2026-11-22"],
     ])
@@ -117,7 +118,7 @@ describe("a home of theirs that was never set up", () => {
     const r = await commitFirstMinute(base)
     expect(r).toMatchObject({ kind: "saved", homeId: "h5" })
     expect(svc.createHome).not.toHaveBeenCalled()
-    expect(svc.upsert).toHaveBeenCalledWith("h5", base.patch)
+    expect(svc.upsert).toHaveBeenCalledWith("h5", { ...base.patch, ownership: "own" })
   })
 
   it("a set-up home, or one someone else created, is still asked about", async () => {
@@ -144,5 +145,30 @@ describe("addToExistingHome", () => {
     expect(svc.upsert).not.toHaveBeenCalled()
     expect(svc.createHome).not.toHaveBeenCalled()
     expect(svc.addLibraryTask.mock.calls.map((c) => c[0])).toEqual(["h9", "h9"])
+  })
+})
+
+describe("commitFirstMinute — the home type answers own-or-rent", () => {
+  it("Apartment saves rent, Condo saves own, on a new home", async () => {
+    await commitFirstMinute({ ...base, patch: { zip: "60614", home_type: "apartment" } })
+    expect(svc.upsert).toHaveBeenLastCalledWith("new1", { zip: "60614", home_type: "apartment", ownership: "rent" })
+    await commitFirstMinute({ ...base, patch: { zip: "94110", home_type: "condo" } })
+    expect(svc.upsert).toHaveBeenLastCalledWith("new1", { zip: "94110", home_type: "condo", ownership: "own" })
+  })
+  it("a house or townhouse says nothing about it", async () => {
+    await commitFirstMinute({ ...base, patch: { zip: "94110", home_type: "house" } })
+    expect(svc.upsert.mock.calls.at(-1)![1]).not.toHaveProperty("ownership")
+  })
+  it("never overwrites an own-or-rent already stored on a home being finished", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h1", name: "My home", created_by: "u1" }, error: null })
+    svc.getProfile.mockResolvedValue({ data: { zip: null, home_type: null, climate: null, completed_at: null, ownership: "own" }, error: null })
+    await commitFirstMinute({ ...base, patch: { zip: "60614", home_type: "apartment" } })
+    expect(svc.upsert).toHaveBeenCalledWith("h1", { zip: "60614", home_type: "apartment" })
+  })
+  it("sets it on a home being finished that has none", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "h1", name: "My home", created_by: "u1" }, error: null })
+    svc.getProfile.mockResolvedValue({ data: { zip: null, home_type: null, climate: null, completed_at: null, ownership: null }, error: null })
+    await commitFirstMinute({ ...base, patch: { zip: "60614", home_type: "apartment" } })
+    expect(svc.upsert).toHaveBeenCalledWith("h1", { zip: "60614", home_type: "apartment", ownership: "rent" })
   })
 })

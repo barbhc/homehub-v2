@@ -27,6 +27,8 @@ vi.mock("@/modules/care", async () => {
     computeNextDueDate: dates.computeNextDueDate,
   }
 })
+// The task page names the signed-in person ("You") when a member has no name.
+vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-me", email: "me@example.com", user_metadata: {} }, loading: false }) }))
 vi.mock("@/modules/home", () => ({ getHomeMembers: (...a: unknown[]) => getHomeMembers(...a) }))
 // The reminder switch reads the notification style (no AuthProvider here); these tests use the default style.
 vi.mock("@/hooks/usePushMode", () => ({ usePushMode: () => ({ mode: "curated+essential" }) }))

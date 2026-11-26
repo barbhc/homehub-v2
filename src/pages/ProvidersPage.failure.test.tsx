@@ -40,18 +40,18 @@ describe("ProvidersPage — failures are said", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Delete Ace Plumbing" }))
 
-    expect(await screen.findByText("Couldn't delete that provider. Check your connection and try again.")).toBeInTheDocument()
+    expect(await screen.findByText("Couldn't delete that pro. Check your connection and try again.")).toBeInTheDocument()
     expect(screen.getAllByText("Ace Plumbing").length).toBeGreaterThan(0)
     // Not stuck on its spinner: the button is live again.
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete Ace Plumbing" })).toBeEnabled())
   })
 
-  it("a list that could not be read says so — not 'No service providers yet'", async () => {
+  it("a list that could not be read says so — not 'No pros yet'", async () => {
     fs.getDocs.mockRejectedValueOnce(new Error("unavailable"))
     renderPage()
 
-    expect(await screen.findByText("Couldn't load your providers")).toBeInTheDocument()
-    expect(screen.queryByText("No service providers yet")).toBeNull()
+    expect(await screen.findByText("Couldn't load your pros")).toBeInTheDocument()
+    expect(screen.queryByText("No pros yet")).toBeNull()
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }))
     expect((await screen.findAllByText("Ace Plumbing")).length).toBeGreaterThan(0)

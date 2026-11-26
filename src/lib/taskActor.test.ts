@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { classifyActorFromText, classifyTaskActor, classifyTaskFields, stepsAllowedFor } from "./taskActor"
+import { classifyActorFromText, classifyTaskActor, classifyTaskFields, isAlarmCheckTitle, stepsAllowedFor } from "./taskActor"
 import type { TaskTemplateWithSchedule } from "@/modules/care"
 
 /**
@@ -266,5 +266,43 @@ describe("typical care library", () => {
       .filter((r) => r.actor !== "diy")
     // A pro or hazardous library entry must be a deliberate change to this test.
     expect(notDiy).toEqual([])
+  })
+})
+
+// Seventeen fixes, 2026-11-25: an alarm check's REASON names the gas it warns
+// of. That must not make the check CO work — and must not stop real CO or gas
+// work from reading as hazardous.
+describe("alarm checks whose reason names CO", () => {
+  const REASON = "Working detectors are your first warning in a fire or CO leak."
+  it("the seeded task: Test smoke & CO detectors + 'fire or CO leak' is DIY", () => {
+    expect(classifyTaskFields({ title: "Test smoke & CO detectors", justification: REASON })).toBe("diy")
+  })
+  it.each([
+    "Test the smoke alarms", "Replace alarm batteries", "Check the carbon monoxide (CO) alarm's date",
+    "Test smoke and CO alarms", "Test the CO alarm", "Test carbon monoxide detector",
+  ])("library/alarm title %s with a CO reason is not hazardous", (title) => {
+    expect(classifyTaskFields({ title, justification: "A carbon monoxide leak has no smell; CO alarms are the only warning." })).not.toBe("hazardous")
+  })
+  it.each([
+    ["Test for carbon monoxide leaks", null],
+    ["Test for carbon monoxide (CO) leaks", null],
+    ["Vent the CO outdoors before re-entering", null],
+    // An alarm title does not excuse other hazards named in the task.
+    ["Replace the hardwired smoke detector", REASON],
+    ["Test the CO alarm", "Then check the gas line for leaks with soapy water."],
+    ["Check the CO detector near the furnace flue", REASON],
+  ])("%s stays hazardous", (title, justification) => {
+    expect(classifyTaskFields({ title, justification })).toBe("hazardous")
+  })
+  it("without a separate title nothing is exempted (the safety pushback's joined text)", () => {
+    expect(classifyActorFromText(`Test smoke & CO detectors ${REASON}`)).toBe("hazardous")
+    expect(classifyActorFromText(`Test smoke & CO detectors ${REASON}`, "Test smoke & CO detectors")).toBe("diy")
+  })
+  it("isAlarmCheckTitle needs the check verb and the device, and no gas work", () => {
+    expect(isAlarmCheckTitle("Test smoke & CO detectors")).toBe(true)
+    expect(isAlarmCheckTitle("Check the carbon monoxide (CO) alarm's date")).toBe(true)
+    expect(isAlarmCheckTitle("Test for carbon monoxide leaks")).toBe(false)
+    expect(isAlarmCheckTitle("Check the gas line near the CO alarm")).toBe(false)
+    expect(isAlarmCheckTitle(null)).toBe(false)
   })
 })

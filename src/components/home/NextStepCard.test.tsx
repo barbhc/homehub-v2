@@ -204,7 +204,8 @@ describe("one question", () => {
     expect(upsertHomeProfile).toHaveBeenCalledWith("home-1", { care_facts: { has_air_filter: true } })
     expect(addLibraryTask).not.toHaveBeenCalled()
     tap("Add 1 task")
-    await waitFor(() => expect(addLibraryTask).toHaveBeenCalledWith("home-1", null, expect.objectContaining({ key: "home.air_filter" }), {}))
+    // Essential since seventeen fixes, so it starts this week like the other essentials.
+    await waitFor(() => expect(addLibraryTask).toHaveBeenCalledWith("home-1", null, expect.objectContaining({ key: "home.air_filter", priorityTier: "essential" }), { firstDue: expect.any(String) }))
   })
 
   it("No saves the answer and adds nothing", async () => {

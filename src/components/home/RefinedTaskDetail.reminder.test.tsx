@@ -29,6 +29,8 @@ vi.mock("@/modules/care", async () => {
     computeNextDueDate: dates.computeNextDueDate,
   }
 })
+// The task page names the signed-in person ("You") when a member has no name.
+vi.mock("@/modules/auth", () => ({ useAuth: () => ({ user: { id: "uid-me", email: "me@example.com", user_metadata: {} }, loading: false }) }))
 vi.mock("@/modules/home", () => ({ getHomeMembers: vi.fn(async () => ({ data: [], error: null })) }))
 vi.mock("@/hooks/usePushMode", () => ({ usePushMode: () => ({ mode }) }))
 vi.mock("@/modules/knowledge", () => ({ getManualsByItem: vi.fn(async () => ({ data: [], error: null })) }))

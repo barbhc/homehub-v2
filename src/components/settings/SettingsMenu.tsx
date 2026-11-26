@@ -88,7 +88,7 @@ function ThisHome({ homeId, homeName }: { homeId: string; homeName: string }) {
     <ListSection label="This home" testId="settings-this-home">
       <ListCard>
         <ListRow first icon={HomeIcon} title="Your home" sub="Zip, home type, shutoffs and notes" to={YOUR_HOME_PATH} testId="settings-row-your-home" />
-        <ListRow first={false} icon={PhoneIcon} title="Service providers" sub={providersSub} to={PROVIDERS_PATH} testId="settings-row-providers" />
+        <ListRow first={false} icon={PhoneIcon} title="Pros" sub={providersSub} to={PROVIDERS_PATH} testId="settings-row-providers" />
         <ListRow first={false} icon={UsersIcon} title={SETTINGS_PANE_TITLE.members} sub={membersSub} to={settingsPane("members")} testId="settings-row-members" />
         <ListRow first={false} icon={ListIcon} title={SETTINGS_PANE_TITLE["task-level"]} value={level} to={settingsPane("task-level")} testId="settings-row-task-level" />
         <ListRow first={false} icon={HomeIcon} title={SETTINGS_PANE_TITLE.homes} value={homeName} to={settingsPane("homes")} testId="settings-row-homes" />

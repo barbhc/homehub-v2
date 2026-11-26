@@ -9,7 +9,7 @@
  */
 import type { DashboardTask, ExpiringWarrantyItem, MaintenanceTaskFull } from "@/lib/dashboard"
 import { urgentTasks } from "@/lib/homeHero"
-import { classifyActorFromText } from "@/lib/taskActor"
+import { classifyTaskFields } from "@/lib/taskActor"
 import type { TemplateSupply } from "@/integrations/types"
 import { addDays } from "../../shared/dates/calendar"
 
@@ -89,7 +89,9 @@ export function prepLine(detail: { title: string; justification?: string | null;
   const names = detail.supplies.map((s) => (s.name ?? "").trim()).filter(Boolean)
   if (names.length === 1) return `You'll need ${withArticle(names[0])}.`
   if (names.length > 1) return `You'll need ${withArticle(names[0])} and ${names.length - 1} more.`
-  const actor = classifyActorFromText(`${detail.title} ${detail.justification ?? ""} ${detail.notes ?? ""}`)
+  // The title goes in on its own (classifyTaskFields) so an alarm check whose
+  // reason says "CO leak" is not read as gas work (seventeen fixes).
+  const actor = classifyTaskFields({ title: detail.title, justification: detail.justification, instructions: detail.notes })
   if (actor === "pro" || actor === "hazardous") return "Schedule a visit with a technician."
   return null
 }

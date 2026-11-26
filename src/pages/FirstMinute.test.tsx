@@ -454,7 +454,8 @@ describe("the house in Minneapolis", () => {
   it("outdoor taps 'if not done yet', and the filter question for a furnace", async () => {
     atArea(MN)
     await toList(/House/)
-    expect(rowTitles()).toEqual(["Test the smoke alarms", "Shut off and drain the outdoor taps", "Replace the air filter"])
+    // The air filter is Essential (seventeen fixes), so it ranks ahead of the taps.
+    expect(rowTitles()).toEqual(["Test the smoke alarms", "Replace the air filter", "Shut off and drain the outdoor taps"])
     expect(screen.getByText("Any outdoor taps or hose bibs?")).toBeInTheDocument()
     expect(screen.getByText("Does the furnace take a filter?")).toBeInTheDocument()
     expect(screen.queryByTestId("not-on-your-list")).toBeNull()

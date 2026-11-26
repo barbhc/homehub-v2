@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon, CheckIcon } from "lucide-react"
+import { Loader2Icon, BellRingIcon, BellOffIcon, CalendarCheckIcon, PackageIcon, XIcon, Undo2Icon, ArrowRightIcon, ChevronLeftIcon, CheckIcon, WrenchIcon, SprayCanIcon, LightbulbIcon, HammerIcon } from "lucide-react"
 import {
   isScheduledTask,
   willNotify,
@@ -70,12 +70,15 @@ import {
  * Setup is a SCHEDULE fact rather than a kind of work, so picking it sets
  * `schedule = "setup"` and leaves care_type alone. `displayKind` reads that back
  * so the tiles always reflect where the row is actually going.
+ *
+ * Line icons, not emoji (seventeen fixes, m8): every other screen uses the one
+ * lucide set, and emoji draw differently on every phone.
  */
 const KINDS = [
-  { id: "maintenance", icon: "🔧", label: "Maintenance", hint: "keeps it working" },
-  { id: "cleaning", icon: "🧽", label: "Cleaning", hint: "keeps it nice" },
-  { id: "usage", icon: "💡", label: "Usage", hint: "good to know" },
-  { id: "setup", icon: "🧰", label: "Setup", hint: "once, at install" },
+  { id: "maintenance", icon: WrenchIcon, label: "Maintenance", hint: "keeps it working" },
+  { id: "cleaning", icon: SprayCanIcon, label: "Cleaning", hint: "keeps it nice" },
+  { id: "usage", icon: LightbulbIcon, label: "Usage", hint: "good to know" },
+  { id: "setup", icon: HammerIcon, label: "Setup", hint: "once, at install" },
 ] as const
 type KindChoice = (typeof KINDS)[number]["id"]
 
@@ -657,7 +660,7 @@ export function TaskReviewSheet({
               onClick={() => setKind(r, k.id)}
               className={`flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                 displayKind(r) === k.id ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground"}`}>
-              <span className="text-[1.0625rem] leading-none shrink-0">{k.icon}</span>
+              <k.icon size={18} className="shrink-0" aria-hidden />
               <span className="min-w-0 leading-tight">
                 <span className="block text-[0.78125rem] font-bold">{k.label}</span>
                 <span className="block text-[0.75rem] font-semibold text-muted-foreground">{k.hint}</span>
@@ -1398,7 +1401,7 @@ function LastDoneControl({ row, patch }: { row: ReviewRow; patch: (id: string, n
         className={`hit-44 rounded-full border px-2.5 py-1.5 text-[0.75rem] font-semibold ${
           open ? "border-[var(--hh-teal-fill)] bg-[var(--hh-teal-fill)] text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
       >
-        {open ? "✓ " : ""}I&rsquo;ve been doing this already
+        {open && <CheckIcon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />}I&rsquo;ve been doing this already
       </button>
       {open && (
         <div className="mt-2 flex items-center gap-2">
