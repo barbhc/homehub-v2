@@ -172,3 +172,12 @@ describe("commitFirstMinute — the home type answers own-or-rent", () => {
     expect(svc.upsert).toHaveBeenCalledWith("h1", { zip: "60614", home_type: "apartment", ownership: "rent" })
   })
 })
+
+describe("commitFirstMinute — a retry of this same setup", () => {
+  it("re-answers own-or-rent from the home type now picked (the earlier attempt's answer is its own)", async () => {
+    svc.getPrimaryHome.mockResolvedValue({ data: { home_id: "new1", name: "My home", created_by: "u1" }, error: null })
+    svc.getProfile.mockResolvedValue({ data: { zip: "60614", home_type: "apartment", climate: null, completed_at: null, ownership: "rent" }, error: null })
+    await commitFirstMinute({ ...base, createdHomeId: "new1", patch: { zip: "94110", home_type: "condo" } })
+    expect(svc.upsert).toHaveBeenCalledWith("new1", { zip: "94110", home_type: "condo", ownership: "own" })
+  })
+})

@@ -405,9 +405,9 @@ export function RefinedTaskDetail({
       </button>
       {assignOpen && (
         <div className="mt-1.5 overflow-hidden rounded-xl border border-[var(--hh-line2)]" style={{ background: "var(--hh-surface)" }}>
-          {[{ user_id: null as string | null, name: "Anyone" }, ...members.map((m) => ({ user_id: m.user_id, name: personLabel(m.profile?.full_name, whoOf(m.user_id)) }))].map((m, i) => (
+          {[{ user_id: null as string | null, name: "Anyone", initial: "" }, ...members.map((m) => ({ user_id: m.user_id, name: personLabel(m.profile?.full_name, whoOf(m.user_id)), initial: personInitials(m.profile?.full_name, whoOf(m.user_id)).slice(0, 1) }))].map((m, i) => (
             <button key={m.user_id ?? "none"} onClick={() => assignTo(m.user_id)} className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left" style={{ borderTop: i ? "0.5px solid var(--hh-line)" : "none", background: m.user_id === detail.assignedTo ? "var(--hh-surface2)" : "var(--hh-surface)" }}>
-              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.name.slice(0, 1).toUpperCase()}</span>
+              <span className="flex size-[26px] items-center justify-center rounded-full text-[0.75rem] font-bold" style={{ background: "var(--hh-teal-wash)", color: TEAL }}>{m.initial || <UserIcon className="size-3.5" aria-hidden />}</span>
               <span className="flex-1 text-[0.9375rem] font-semibold" style={{ color: INK }}>{m.name}</span>
               {m.user_id === detail.assignedTo && <CheckIcon className="size-4" strokeWidth={2.6} style={{ color: TEAL }} />}
             </button>

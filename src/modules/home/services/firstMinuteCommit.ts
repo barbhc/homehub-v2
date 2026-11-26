@@ -72,7 +72,9 @@ export async function commitFirstMinute(input: CommitInput): Promise<CommitResul
     track("home_created", { home_id: homeId })
   }
 
-  const profile = await upsertHomeProfile(homeId, await withOwnership(homeId, input.patch, !!existing.data))
+  // A home a failed attempt of THIS setup created holds this setup's own
+  // earlier answer, so a changed home type re-answers own-or-rent there.
+  const profile = await upsertHomeProfile(homeId, await withOwnership(homeId, input.patch, !!existing.data && homeId !== input.createdHomeId))
   if (profile.error) {
     console.warn(`[first minute] could not save the profile (home ${homeId}):`, profile.error.message)
     return fail("Couldn't save your home. Check your connection and try again.", homeId)
