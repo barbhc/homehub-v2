@@ -57,7 +57,7 @@ const PAGES: PageCase[] = [
  * which this config does not start.
  */
 const SIGNED_OUT_PAGES: PageCase[] = [
-  { name: "landing", path: "/", ready: /everything your home needs/i },
+  { name: "landing", path: "/", ready: /see what your home needs this month/i },
   { name: "sign-in", path: "/signin", ready: /welcome back/i },
   { name: "reset-password (bad link)", path: "/reset-password", ready: /that link didn't work/i },
   { name: "not-found", path: "/no-such-page", ready: /page not found/i },

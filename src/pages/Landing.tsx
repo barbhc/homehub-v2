@@ -71,11 +71,13 @@ function PhoneMock() {
   )
 }
 
+// Most compelling first (owner, 2026-11-27): Maintenance, Ask, Warranties, then
+// Inventory — the same order and titles as the marketing page (public/beta.html).
 const FEATURES = [
-  { Icon: PackageIcon, kicker: "Inventory", t: "Every appliance, organized", s: "Model, purchase date, warranty and manual for every appliance, kept in one place." },
-  { Icon: ListChecksIcon, kicker: "Maintenance", t: "A schedule that builds itself", s: "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips." },
-  { Icon: ShieldCheckIcon, kicker: "Warranties", t: "Coverage you won't forget", s: "See what's protected and what's lapsing soon, all in one tidy list." },
-  { Icon: SparklesIcon, kicker: "Ask", t: "Answers about your home", s: "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance." },
+  { Icon: ListChecksIcon, t: "A schedule that builds itself", s: "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips." },
+  { Icon: SparklesIcon, t: "Answers about your home", s: "Ask about anything you own. With its manual you get a clear, sourced answer; without one, general guidance." },
+  { Icon: ShieldCheckIcon, t: "Know what’s still under warranty", s: "One list of what’s covered and what runs out soon. Each item shows the date its coverage ends." },
+  { Icon: PackageIcon, t: "Every appliance, organized", s: "Model, purchase date, warranty and manual for every appliance, kept in one place." },
 ]
 
 const STEPS: [string, string, string][] = [
@@ -96,12 +98,12 @@ export default function Landing() {
           <div className="px-6 pt-[34px] pb-10 lg:px-0 lg:pt-14 lg:pb-20 lg:flex lg:items-center lg:gap-12">
             <div className="text-center lg:text-left lg:flex-1">
               {/* Larger Text: the headline grows at most 1.5x — titles grow less
-                  than body text on iOS, and "Everything" must still fit a phone. */}
+                  than body text on iOS, and its longest word must still fit a phone. */}
               <h1 className="text-[length:min(2.375rem,57px)] lg:text-[length:min(3.25rem,78px)] font-extrabold leading-[1.1] tracking-[-1px] text-balance">
-                Everything your home needs, in one place.
+                See what your home needs this month.
               </h1>
               <p className="text-[1.03125rem] lg:text-[1.125rem] leading-[1.5] mt-4 mb-6 max-w-[340px] lg:max-w-[420px] mx-auto lg:mx-0" style={{ color: "rgba(255,255,255,0.78)" }}>
-                Tell us your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.
+                Enter your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.
               </p>
               <GetStarted alignLeftLg />
             </div>
@@ -116,18 +118,17 @@ export default function Landing() {
       <section style={{ background: "var(--hh-surface2)" }}>
         <div className="mx-auto max-w-[480px] lg:max-w-[1000px] px-6 lg:px-8">
           <div className="pt-7 lg:pt-16 pb-1.5 lg:pb-6 text-center">
-            <h2 className="text-[1.625rem] lg:text-[2rem] font-extrabold tracking-[-0.6px]">Built around your home</h2>
+            <h2 className="text-[1.625rem] lg:text-[2rem] font-extrabold tracking-[-0.6px]">What Homehub does</h2>
           </div>
           <div className="lg:grid lg:grid-cols-2 lg:gap-x-14 lg:gap-y-2">
             {FEATURES.map((f, i) => (
-              <div key={f.kicker}>
+              <div key={f.t}>
                 {i > 0 && <div className="h-px lg:hidden" style={{ background: "var(--hh-line)" }} />}
                 <div className={cn("flex items-center gap-4 py-[18px] lg:py-7", i % 2 === 1 && "flex-row-reverse lg:flex-row")}>
                   <div className="flex items-center justify-center shrink-0" style={{ width: 76, height: 76, borderRadius: 20, background: "var(--hh-teal-wash)" }}>
                     <f.Icon size={34} strokeWidth={1.6} style={{ color: TEAL }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[0.6875rem] font-bold uppercase tracking-[0.5px] mb-1" style={{ color: TEAL }}>{f.kicker}</div>
                     <div className="text-[1.125rem] font-extrabold tracking-[-0.3px]" style={{ color: INK }}>{f.t}</div>
                     <div className="text-[0.875rem] leading-[1.5] mt-1" style={{ color: SUB }}>{f.s}</div>
                   </div>
@@ -164,7 +165,7 @@ export default function Landing() {
       <section>
         <div className="mx-auto max-w-[480px] lg:max-w-[760px] px-6 lg:px-8 pt-[30px] lg:pt-16 pb-11 lg:pb-20">
           <div className="text-center text-white" style={{ background: "var(--hh-hero-card)", borderRadius: 24, padding: 28 }}>
-            <h2 className="text-[1.5625rem] lg:text-[1.875rem] font-extrabold tracking-[-0.5px] mb-2">See what your home needs this month</h2>
+            <h2 className="text-[1.5625rem] lg:text-[1.875rem] font-extrabold tracking-[-0.5px] mb-2">Start with your zip</h2>
             <p className="text-[0.90625rem] lg:text-[1rem] leading-[1.5] mb-5 lg:max-w-[440px] lg:mx-auto" style={{ color: "rgba(255,255,255,0.74)" }}>
               Your zip, your kind of home, then a short list. Free.
             </p>

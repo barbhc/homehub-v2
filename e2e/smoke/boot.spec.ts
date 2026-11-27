@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test"
 test.describe("v2 boot smoke", () => {
   test("landing renders", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByText("Everything your home needs, in one place.")).toBeVisible()
+    await expect(page.getByText("See what your home needs this month.")).toBeVisible()
     // A link since account-after-list: it opens the zip step, no form to submit.
     await expect(page.getByRole("link", { name: /get started/i }).first()).toBeVisible()
   })
@@ -28,7 +28,7 @@ test.describe("v2 boot smoke", () => {
     // Unauthenticated → the gate must route away from the app shell (no crash,
     // no blank screen). Accept either the landing or an auth screen.
     await expect(
-      page.getByText(/Everything your home needs|Welcome back/).first()
+      page.getByText(/See what your home needs this month\.|Welcome back/).first()
     ).toBeVisible({ timeout: 10_000 })
     expect(errors, errors.join(" | ")).toHaveLength(0)
   })

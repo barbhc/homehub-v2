@@ -19,8 +19,16 @@ const joined = (src: string) => src.replace(/"\s*\+\s*\n\s*"/g, "")
 
 // Seventeen fixes (mock m6, owner-approved 2026-11-25) replaced the hero's line
 // and the Ask title: the first thing a new person does is type a zip.
+// 2026-11-27 (owner: "match the welcome screen too"): the welcome page takes
+// the marketing page's headline, feature order and titles, and "Tell us"
+// becomes "Enter" so both pages carry one sentence.
 const LANDING_NEW = [
-  "Tell us your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.",
+  "Enter your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.",
+  "See what your home needs this month.",
+  "What Homehub does",
+  "Know what’s still under warranty",
+  "One list of what’s covered and what runs out soon. Each item shows the date its coverage ends.",
+  "Start with your zip",
   "Answers about your home",
   "Model, purchase date, warranty and manual for every appliance, kept in one place.",
   "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips.",
@@ -31,6 +39,12 @@ const LANDING_NEW = [
   "Tailored to your home, your climate and what you own.",
 ]
 const LANDING_OLD = [
+  "Tell us your zip and the kind of home you have.",
+  "Everything your home needs, in one place.",
+  "Built around your home",
+  "Coverage you won't forget",
+  "all in one tidy list",
+  "uppercase",
   "Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.",
   "Answers from your manuals",
   "Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.",
