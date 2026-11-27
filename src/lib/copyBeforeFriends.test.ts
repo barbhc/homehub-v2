@@ -95,6 +95,47 @@ describe("before-friends copy (mock 3)", () => {
   })
 })
 
+describe("/beta leads with what matters most (owner, 2026-11-27)", () => {
+  // "Make sure the most compelling benefits are listed first, such as
+  // Maintenance over Inventory", and the words that read as written by AI go.
+  const at = (text: string) => {
+    const i = beta.indexOf(text)
+    expect(i, `/beta should say ${text}`).toBeGreaterThan(-1)
+    return i
+  }
+  it("features run Maintenance, Ask, Warranties, then Inventory", () => {
+    const order = [
+      "<h3>A schedule that builds itself</h3>",
+      "<h3>Answers about your home</h3>",
+      "<h3>Know what&rsquo;s still under warranty</h3>",
+      "<h3>Every appliance, organized</h3>",
+    ].map(at)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+  })
+  it("the headline says the benefit, and the zip-first line follows it", () => {
+    at("<h1>See what your home needs this month.</h1>")
+    at("Enter your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.")
+  })
+  it.each([
+    "Everything your home needs, in one place.",
+    "organized to effortlessly care for your home",
+    "Built around your home",
+    "Coverage you won&rsquo;t forget",
+    "Coverage you won't forget",
+    "all in one tidy list",
+    "in seconds",
+    "not generic advice",
+    "so safety comes before polish",
+    "Up and running in minutes",
+    'class="kicker"',
+  ])("/beta no longer says %s", (s) => {
+    expect(beta).not.toContain(s)
+  })
+  it("carries no em dash in its words", () => {
+    expect(beta.split("<body>")[1]).not.toContain("—")
+  })
+})
+
 describe("the welcome page's phone (seventeen fixes, mock m6)", () => {
   it.each(["public/landing/first-list-light.webp", "public/landing/first-list-dark.webp"])("%s ships, small enough for a hero", (file) => {
     expect(existsSync(file)).toBe(true)
