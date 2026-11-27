@@ -4,6 +4,7 @@ import { RemoveScroll } from "react-remove-scroll"
 import { GripVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { updateTaskContent, rescheduleTaskInstance, type TaskDetail } from "@/modules/care"
 import { classifyTaskDetail, stepsAllowedFor } from "@/lib/taskActor"
+import { comesDueOn } from "../../../shared/tasks/snooze"
 
 /**
  * Edit a task: its name, when it's next due, and its steps.
@@ -33,14 +34,21 @@ export function TaskEditSheet({
   onSaved: () => void
 }) {
   const [title, setTitle] = useState(detail.title)
-  const [dueDate, setDueDate] = useState(detail.dueDate)
+  // "Next due" is the day the task next comes due, which for a snoozed one is
+  // the snooze's end, not the stored dueDate the snooze left alone (gallery
+  // 2026-11-26: a task snoozed to Dec 10 opened here showing 11/21). One rule,
+  // shared/tasks/snooze.ts, so this field agrees with the page behind it.
+  const shownDue = comesDueOn(detail) ?? detail.dueDate
+  const [dueDate, setDueDate] = useState(shownDue)
   const [steps, setSteps] = useState<string[]>(detail.steps ?? [])
   const stepsEditable = stepsAllowedFor(classifyTaskDetail(detail))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const titleChanged = title.trim() !== detail.title
-  const dateChanged = dueDate !== detail.dueDate
+  // Compared with what was SHOWN: opening a snoozed task and saving only a new
+  // name must not reschedule it (and so silently end the snooze).
+  const dateChanged = dueDate !== shownDue
   const stepsChanged = JSON.stringify(steps.map((s) => s.trim()).filter(Boolean)) !== JSON.stringify(detail.steps ?? [])
   const dirty = titleChanged || dateChanged || stepsChanged
 

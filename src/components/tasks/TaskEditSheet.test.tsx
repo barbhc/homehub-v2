@@ -111,3 +111,48 @@ describe("TaskEditSheet — hazardous work", () => {
     expect(screen.getByRole("button", { name: /add a step/i })).toBeInTheDocument()
   })
 })
+
+describe("TaskEditSheet on a snoozed task (gallery 2026-11-26)", () => {
+  // Snooze leaves dueDate alone and sets snoozedUntil; the page says
+  // "Snoozed until Dec 10", so the sheet's Next due must say Dec 10 too.
+  const snoozed = {
+    taskInstanceId: "inst2",
+    taskTemplateId: "tpl2",
+    title: "Replace the air filter",
+    dueDate: "2026-11-21",
+    status: "snoozed",
+    snoozedUntil: "2026-12-10",
+    steps: [],
+  } as never
+
+  it("Next due shows the snooze's end, not the date the snooze left alone", () => {
+    render(<TaskEditSheet homeId="h1" detail={snoozed} onClose={() => {}} onSaved={() => {}} />)
+    expect(screen.getByDisplayValue("2026-12-10")).toBeInTheDocument()
+    expect(screen.queryByDisplayValue("2026-11-21")).toBeNull()
+  })
+
+  it("renaming it does not reschedule it (which would end the snooze)", async () => {
+    const onSaved = vi.fn()
+    render(<TaskEditSheet homeId="h1" detail={snoozed} onClose={() => {}} onSaved={onSaved} />)
+    fireEvent.change(screen.getByPlaceholderText(/what is this task called/i), { target: { value: "Change the furnace filter" } })
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(rescheduleTaskInstance).not.toHaveBeenCalled()
+  })
+
+  it("picking a new date reschedules to that date", async () => {
+    const onSaved = vi.fn()
+    render(<TaskEditSheet homeId="h1" detail={snoozed} onClose={() => {}} onSaved={onSaved} />)
+    fireEvent.change(screen.getByDisplayValue("2026-12-10"), { target: { value: "2026-12-01" } })
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(rescheduleTaskInstance).toHaveBeenCalledWith("h1", "inst2", "2026-12-01")
+  })
+
+  it("a task snoozed while already due later keeps its own later date", () => {
+    const later = { ...(snoozed as object), dueDate: "2026-12-20" } as never
+    render(<TaskEditSheet homeId="h1" detail={later} onClose={() => {}} onSaved={() => {}} />)
+    expect(screen.getByDisplayValue("2026-12-20")).toBeInTheDocument()
+  })
+})
+

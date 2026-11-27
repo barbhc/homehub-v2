@@ -12,6 +12,7 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 const landing = readFileSync("src/pages/Landing.tsx", "utf8")
 const tour = readFileSync("src/lib/tourSteps.ts", "utf8")
 const beta = readFileSync("public/beta.html", "utf8")
+const ask = readFileSync("src/pages/ChatPage.tsx", "utf8")
 
 // tourSteps.ts splits long strings over lines with `" +\n "`; join them back.
 const joined = (src: string) => src.replace(/"\s*\+\s*\n\s*"/g, "")
@@ -99,5 +100,16 @@ describe("the welcome page's phone (seventeen fixes, mock m6)", () => {
     expect(existsSync(file)).toBe(true)
     expect(statSync(file).size).toBeLessThan(150_000)
     expect(landing).toContain(file.replace(/^public/, ""))
+  })
+})
+
+describe("the Ask tab's line (gallery 2026-11-26)", () => {
+  // The welcome page and /beta moved to "Answers about your home" in #309/#311;
+  // the Ask tab itself still led with manuals.
+  it("leads with your home, as the welcome page does", () => {
+    expect(ask).toContain("Answers about your home, from your manuals when you have them.")
+  })
+  it("no longer leads with manuals", () => {
+    expect(ask).not.toContain("Answers from your manuals")
   })
 })

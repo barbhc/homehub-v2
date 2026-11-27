@@ -615,7 +615,7 @@ function AskForHome() {
             </span>
             <h1 className="text-[1.875rem] font-extrabold tracking-[-0.6px]" style={{ color: "var(--hh-ink)" }}>Ask</h1>
             <p className="mt-1.5 text-[0.9375rem]" style={{ color: "var(--hh-sub)" }}>
-              Answers from your manuals when you have them, general guidance when you don't.
+              Answers about your home, from your manuals when you have them.
             </p>
           </div>
 
