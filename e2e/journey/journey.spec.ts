@@ -114,7 +114,7 @@ test.describe("journey walks", () => {
     await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"))
     await page.goto("/")
     await snap(page, "J1", "landing", "Marketing page: hero copy and one Get started button (no email box), Sign in top right — no errors",
-      page.getByRole("heading", { name: /Everything your home needs/i }).first())
+      page.getByRole("heading", { name: /See what your home needs this month/i }).first())
 
     // account-after-list (design/account-after-list.md): Get started goes
     // straight to the zip. No account, no invite code — and nothing is written

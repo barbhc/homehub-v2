@@ -19,8 +19,16 @@ const joined = (src: string) => src.replace(/"\s*\+\s*\n\s*"/g, "")
 
 // Seventeen fixes (mock m6, owner-approved 2026-11-25) replaced the hero's line
 // and the Ask title: the first thing a new person does is type a zip.
+// 2026-11-27 (owner: "match the welcome screen too"): the welcome page takes
+// the marketing page's headline, feature order and titles, and "Tell us"
+// becomes "Enter" so both pages carry one sentence.
 const LANDING_NEW = [
-  "Tell us your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.",
+  "Enter your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.",
+  "See what your home needs this month.",
+  "What Homehub does",
+  "Know what’s still under warranty",
+  "One list of what’s covered and what runs out soon. Each item shows the date its coverage ends.",
+  "Start with your zip",
   "Answers about your home",
   "Model, purchase date, warranty and manual for every appliance, kept in one place.",
   "Common upkeep for what most homes have, plus the exact schedule from your manual when you add one. Proactive reminders so nothing slips.",
@@ -31,6 +39,12 @@ const LANDING_NEW = [
   "Tailored to your home, your climate and what you own.",
 ]
 const LANDING_OLD = [
+  "Tell us your zip and the kind of home you have.",
+  "Everything your home needs, in one place.",
+  "Built around your home",
+  "Coverage you won't forget",
+  "all in one tidy list",
+  "uppercase",
   "Items, manuals, warranties, maintenance and a built-in assistant, organized to effortlessly care for your home.",
   "Answers from your manuals",
   "Items, manuals, warranties, maintenance and a built-in assistant — organized to effortlessly care for your home.",
@@ -92,6 +106,47 @@ describe("before-friends copy (mock 3)", () => {
 
   it("no new sentence carries an em dash", () => {
     for (const s of [...LANDING_NEW, ...TOUR_NEW, ...BETA_NEW]) expect(s).not.toContain("—")
+  })
+})
+
+describe("/beta leads with what matters most (owner, 2026-11-27)", () => {
+  // "Make sure the most compelling benefits are listed first, such as
+  // Maintenance over Inventory", and the words that read as written by AI go.
+  const at = (text: string) => {
+    const i = beta.indexOf(text)
+    expect(i, `/beta should say ${text}`).toBeGreaterThan(-1)
+    return i
+  }
+  it("features run Maintenance, Ask, Warranties, then Inventory", () => {
+    const order = [
+      "<h3>A schedule that builds itself</h3>",
+      "<h3>Answers about your home</h3>",
+      "<h3>Know what&rsquo;s still under warranty</h3>",
+      "<h3>Every appliance, organized</h3>",
+    ].map(at)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+  })
+  it("the headline says the benefit, and the zip-first line follows it", () => {
+    at("<h1>See what your home needs this month.</h1>")
+    at("Enter your zip and the kind of home you have. Homehub gives you the few tasks that matter this month and reminds you when they&rsquo;re due.")
+  })
+  it.each([
+    "Everything your home needs, in one place.",
+    "organized to effortlessly care for your home",
+    "Built around your home",
+    "Coverage you won&rsquo;t forget",
+    "Coverage you won't forget",
+    "all in one tidy list",
+    "in seconds",
+    "not generic advice",
+    "so safety comes before polish",
+    "Up and running in minutes",
+    'class="kicker"',
+  ])("/beta no longer says %s", (s) => {
+    expect(beta).not.toContain(s)
+  })
+  it("carries no em dash in its words", () => {
+    expect(beta.split("<body>")[1]).not.toContain("—")
   })
 })
 
